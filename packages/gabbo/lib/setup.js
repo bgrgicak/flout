@@ -16,6 +16,9 @@ function setup(agent) {
       console.log(`  ✓ ${bin}`);
     } else {
       console.error(`  ✗ ${bin} — not found in PATH`);
+      if (bin === agent.binary && agent.installHint) {
+        console.error(`    Install with: ${agent.installHint}`);
+      }
       ok = false;
     }
   }

@@ -9,6 +9,7 @@ function encodePath(dir) {
 module.exports = {
   name: 'claude',
   binary: 'claude',
+  installHint: 'curl -fsSL https://claude.ai/install.sh | bash',
 
   remoteCommand(sessionName) {
     return `claude remote-control --spawn=session --permission-mode bypassPermissions --name ${sessionName}`;
