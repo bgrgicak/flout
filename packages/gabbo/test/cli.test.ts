@@ -14,8 +14,9 @@ function run(...args: string[]): { stdout: string; stderr: string; exitCode: num
       timeout: 5000,
     });
     return { stdout, stderr: '', exitCode: 0 };
-  } catch (err: any) {
-    return { stdout: err.stdout || '', stderr: err.stderr || '', exitCode: err.status };
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; stderr?: string; status: number };
+    return { stdout: e.stdout || '', stderr: e.stderr || '', exitCode: e.status };
   }
 }
 

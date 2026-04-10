@@ -1,15 +1,23 @@
 {
   "private": true,
+  "type": "module",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
     "build": "tsc --build",
-    "test": "npm test --workspaces",
-    "clean": "tsc --build --clean"
+    "cli": "tsx packages/gabbo/src/cli.ts",
+    "dev": "tsc --build && node packages/gabbo/bin/gabbo.js",
+    "test": "tsc --build && npm test --workspaces",
+    "clean": "tsc --build --clean",
+    "publish-all": "npm run build && npm publish --workspaces"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^25.6.0",
-    "typescript": "^6.0.2"
+    "eslint": "^10.2.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.1"
   }
 }
