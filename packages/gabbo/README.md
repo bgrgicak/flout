@@ -12,6 +12,15 @@ npm install -g gabbo
 
 Requires: Node.js 18+, tmux.
 
+## Development
+
+```bash
+git clone <repo> && cd gabbo
+npm install
+npm run build
+npm test
+```
+
 ## Quick start
 
 ```bash
@@ -53,4 +62,4 @@ gabbo wraps tmux and your agent's CLI. `gabbo remote` starts a tmux session runn
 
 ## License
 
-MIT
+GPL-2.0

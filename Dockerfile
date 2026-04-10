@@ -12,10 +12,16 @@ RUN useradd -m -s /bin/bash dev \
 USER dev
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
-# Install gabbo
-COPY packages/gabbo /tmp/gabbo
+# Install gabbo from source
+COPY --chown=dev:dev package.json package-lock.json tsconfig.json tsconfig.base.json /tmp/gabbo/
+COPY --chown=dev:dev packages /tmp/gabbo/packages
 USER root
-RUN cd /tmp/gabbo && npm pack && npm install -g gabbo-*.tgz && rm -rf /tmp/gabbo
+RUN cd /tmp/gabbo && npm ci && npm run build \
+    && cd packages/claude && npm pack && mv gabbo-claude-*.tgz /tmp/ && cd .. \
+    && cd docker && npm pack && mv gabbo-docker-*.tgz /tmp/ && cd .. \
+    && cd gabbo && npm pack && mv gabbo-*.tgz /tmp/ && cd .. \
+    && npm install -g /tmp/gabbo-claude-*.tgz /tmp/gabbo-docker-*.tgz /tmp/gabbo-*.tgz \
+    && rm -rf /tmp/gabbo /tmp/gabbo-*.tgz
 USER dev
 
 WORKDIR /home/dev

@@ -1,51 +1,73 @@
 # Contributing to gabbo
 
-## Project structure
+## Monorepo structure
 
 ```
-bin/gabbo.js          CLI entry point — parses args, dispatches to lib/
-lib/sessions.js       tmux session lifecycle (start, remote, stop, join, list, restart, status)
-lib/setup.js          setup and trust commands
-lib/docker.js         Docker container lifecycle (start, stop, shell, status)
-lib/agents/claude.js  Claude-specific commands, auth, and trust checking
-test/                 Tests using node:test
+packages/
+  gabbo/              Main CLI — session management, setup, types
+    src/cli.ts        CLI entry point — parses args, dispatches commands
+    src/sessions.ts   tmux session lifecycle (start, remote, stop, join, list, restart, status)
+    src/setup.ts      setup and trust commands
+    src/types.ts      Agent interface — exported for providers
+    bin/gabbo.js      Thin ESM shim for the compiled CLI
+    test/             CLI and session integration tests
+
+  claude/             @gabbo/claude — Claude Code provider
+    src/index.ts      Claude-specific commands, auth, and trust checking
+
+  docker/             @gabbo/docker — Docker runtime
+    src/index.ts      Container lifecycle (start, stop, shell, status)
 ```
 
 ## Architecture
 
-gabbo is agent-agnostic at the session layer. `lib/sessions.js` and `lib/setup.js` accept an agent object and never reference Claude directly. Agent-specific logic lives in `lib/agents/`.
+gabbo is a TypeScript monorepo using npm workspaces. The core `gabbo` package is agent-agnostic — `sessions.ts` and `setup.ts` accept an `Agent` interface and never reference Claude directly.
 
-An agent object must implement:
+The `Agent` interface is defined in `packages/gabbo/src/types.ts`:
 
-```js
-{
-  name: 'agent-name',
-  binary: 'agent-binary',           // checked during setup
-  remoteCommand(sessionName),       // command string for remote-control mode
-  startCommand(),                   // command string for local interactive mode
-  loginCommand(),                   // command string for interactive login
-  setupTokenCommand(),              // command string for long-lived token creation
-  isAuthenticated(),                // returns boolean — checked before starting remote sessions
-  isTrusted(dir),                   // returns boolean
-  trustCommand(),                   // command string to run interactively for trust
+```ts
+interface Agent {
+  name: string;
+  binary: string;
+  installHint?: string;
+  remoteCommand(sessionName: string): string;
+  startCommand(): string;
+  loginCommand(): string;
+  setupTokenCommand(): string;
+  isAuthenticated(): boolean;
+  isTrusted(dir: string): boolean;
+  trustCommand(): string;
+  encodePath(dir: string): string;
 }
 ```
 
 ## Adding a new agent
 
-1. Create `lib/agents/<name>.js` exporting an agent object
-2. Add it as an option in `bin/gabbo.js` (future: `--agent` flag)
+1. Create a new package `packages/<name>/` with `src/index.ts` exporting an object satisfying `Agent`
+2. Add it as a workspace dependency in `packages/gabbo/package.json`
+3. Wire it up in `packages/gabbo/src/cli.ts`
+
+## Adding a new runtime
+
+1. Create a new package `packages/<name>/` (like `packages/docker/`)
+2. Define a minimal interface for what you need from the agent (structural typing)
+3. Wire it up as a subcommand in `packages/gabbo/src/cli.ts`
+
+## Building
+
+```bash
+npm install     # install workspace dependencies
+npm run build   # tsc --build (compiles all packages)
+npm test        # runs tests across all workspaces
+```
 
 ## Testing
 
-```bash
-npm test
-```
-
-Tests use `node:test` and `node:assert` (no dependencies). Integration tests use a real bash-based agent and real tmux sessions — no mocks.
+Tests use `node:test` and `node:assert`. Integration tests use a real bash-based agent and real tmux sessions — no mocks.
 
 ## Constraints
 
-- Zero npm dependencies — only Node.js built-ins
+- Minimal dependencies — only TypeScript and @types/node as dev deps
 - No frameworks for arg parsing — manual `process.argv`
 - Node.js 18+ required (for `node:test`)
+- ESM throughout (`"type": "module"`)
