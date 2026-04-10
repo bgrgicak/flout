@@ -37,10 +37,15 @@ gabbo remote myagent --path ~/my-project
 | `gabbo stop <name>` | Stop a session |
 | `gabbo join <name>` | Attach to a running tmux session |
 | `gabbo list` | List active sessions |
+| `gabbo status` | Show login and session status |
 | `gabbo restart <name> [--path <dir>]` | Restart a remote session |
 | `gabbo trust <dir>` | Trust a project directory (interactive) |
+| `gabbo docker start [--name <n>]` | Build image if needed, start a Docker container |
+| `gabbo docker stop [--name <n>]` | Stop a Docker container |
+| `gabbo docker shell [--name <n>]` | Exec into a running container |
+| `gabbo docker status` | List gabbo Docker containers |
 
-`--path` defaults to the current directory if not specified.
+`--path` defaults to the current directory if not specified. `--name` defaults to the basename of the current directory. Extra Docker flags can be passed after `--` (e.g. `gabbo docker start -- --gpus all`).
 
 ## How it works
 

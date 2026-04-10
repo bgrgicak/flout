@@ -4,9 +4,10 @@
 
 ```
 bin/gabbo.js          CLI entry point — parses args, dispatches to lib/
-lib/sessions.js       tmux session lifecycle (start, remote, stop, join, list, restart)
+lib/sessions.js       tmux session lifecycle (start, remote, stop, join, list, restart, status)
 lib/setup.js          setup and trust commands
-lib/agents/claude.js  Claude-specific commands and trust checking
+lib/docker.js         Docker container lifecycle (start, stop, shell, status)
+lib/agents/claude.js  Claude-specific commands, auth, and trust checking
 test/                 Tests using node:test
 ```
 
@@ -24,6 +25,7 @@ An agent object must implement:
   startCommand(),                   // command string for local interactive mode
   loginCommand(),                   // command string for interactive login
   setupTokenCommand(),              // command string for long-lived token creation
+  isAuthenticated(),                // returns boolean — checked before starting remote sessions
   isTrusted(dir),                   // returns boolean
   trustCommand(),                   // command string to run interactively for trust
 }
