@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, mock } from 'node:test';
 import assert from 'node:assert';
 import claude, { encodePath } from '../src/index.js';
 
@@ -11,8 +11,18 @@ describe('claude agent', () => {
     );
   });
 
-  it('generates start command', () => {
+  it('generates start command without sudo when not root', () => {
     assert.strictEqual(claude.startCommand(), 'claude --permission-mode bypassPermissions');
+  });
+
+  it('generates start command with IS_SANDBOX=1 when root', () => {
+    const original = process.getuid;
+    process.getuid = () => 0;
+    try {
+      assert.strictEqual(claude.startCommand(), 'IS_SANDBOX=1 claude --permission-mode bypassPermissions');
+    } finally {
+      process.getuid = original;
+    }
   });
 
   it('encodes paths correctly', () => {

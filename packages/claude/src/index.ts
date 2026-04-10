@@ -17,7 +17,8 @@ export default {
   },
 
   startCommand(): string {
-    return 'claude --permission-mode bypassPermissions';
+    const base = 'claude --permission-mode bypassPermissions';
+    return process.getuid?.() === 0 ? `IS_SANDBOX=1 ${base}` : base;
   },
 
   loginCommand(): string {
