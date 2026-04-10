@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main, trunk]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-lint-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm ci
+      - run: npx tsc --build
+      - run: npx eslint .
+      - name: Test gabbo (CLI + sessions)
+        run: npx tsx --test 'packages/gabbo/test/cli.test.ts'
+      - name: Test docker (unit)
+        run: npx tsx --test 'packages/docker/test/docker.test.ts'

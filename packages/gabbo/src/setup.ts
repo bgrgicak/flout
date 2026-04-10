@@ -30,10 +30,18 @@ export function setup(agent: Agent): void {
   }
 
   console.log('\nRunning interactive login...');
-  spawnSync(agent.loginCommand(), { stdio: 'inherit', shell: true });
+  const login = spawnSync(agent.loginCommand(), { stdio: 'inherit', shell: true });
+  if (login.status !== 0) {
+    console.error('Login failed.');
+    process.exit(1);
+  }
 
   console.log('\nSetting up long-lived token...');
-  spawnSync(agent.setupTokenCommand(), { stdio: 'inherit', shell: true });
+  const token = spawnSync(agent.setupTokenCommand(), { stdio: 'inherit', shell: true });
+  if (token.status !== 0) {
+    console.error('Token setup failed.');
+    process.exit(1);
+  }
 
   console.log('\nSetup complete.');
 }

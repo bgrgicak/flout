@@ -8,11 +8,32 @@
   "bin": {
     "gabbo": "./bin/gabbo.js"
   },
+  "files": [
+    "dist/src",
+    "bin"
+  ],
   "scripts": {
     "build": "tsc --build",
     "dev": "tsx src/cli.ts",
-    "test": "tsx --test 'test/*.test.ts'"
+    "test": "tsx --test 'test/*.test.ts'",
+    "prepublishOnly": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bgrgicak/gabbo.git",
+    "directory": "packages/gabbo"
+  },
+  "homepage": "https://github.com/bgrgicak/gabbo",
+  "author": "Bero",
+  "keywords": [
+    "tmux",
+    "agent",
+    "session",
+    "claude",
+    "ai",
+    "cli",
+    "persistent"
+  ],
   "dependencies": {
     "@gabbo/claude": "*",
     "@gabbo/docker": "*"

@@ -2,12 +2,30 @@
   "name": "@gabbo/docker",
   "version": "0.1.0",
   "type": "module",
+  "description": "Docker container management for gabbo",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
+  "files": [
+    "dist/src"
+  ],
   "scripts": {
     "build": "tsc --build",
-    "test": "node --test 'dist/test/*.test.js'"
+    "test": "node --test 'dist/test/*.test.js'",
+    "prepublishOnly": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bgrgicak/gabbo.git",
+    "directory": "packages/docker"
+  },
+  "homepage": "https://github.com/bgrgicak/gabbo",
+  "author": "Bero",
+  "keywords": [
+    "gabbo",
+    "docker",
+    "container",
+    "agent"
+  ],
   "engines": {
     "node": ">=18"
   },
