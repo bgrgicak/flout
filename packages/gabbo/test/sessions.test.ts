@@ -1,27 +1,46 @@
-const { describe, it, after } = require('node:test');
-const assert = require('node:assert');
-const { spawnSync, execFileSync } = require('child_process');
-const path = require('path');
-const sessions = require('../lib/sessions');
+import { describe, it, after } from 'node:test';
+import assert from 'node:assert';
+import { spawnSync, execFileSync } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import * as sessions from '../src/sessions.js';
+import type { Agent } from '../src/types.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const bin = path.join(__dirname, '..', '..', 'bin', 'gabbo.js');
 
 // A real agent that runs bash instead of claude.
 // This is a legitimate agent implementation — no mocks.
-const bashAgent = {
+const bashAgent: Agent = {
   name: 'bash-test',
   binary: 'bash',
-  remoteCommand(name) {
+  remoteCommand(name: string) {
     return `bash -c "while true; do echo running-${name}; sleep 60; done"`;
   },
   startCommand() {
     return 'bash -c "echo started; sleep 60"';
   },
+  loginCommand() {
+    return 'bash';
+  },
+  setupTokenCommand() {
+    return 'bash';
+  },
+  isAuthenticated() {
+    return true;
+  },
   isTrusted() {
     return true;
+  },
+  trustCommand() {
+    return 'bash';
+  },
+  encodePath(dir: string) {
+    return '-' + path.resolve(dir).split('/').filter(Boolean).join('-');
   },
 };
 
 const TEST_SESSION = 'gabbo-test-session';
-const bin = path.join(__dirname, '..', 'bin', 'gabbo.js');
 
 // Clean up any leftover test sessions
 after(() => {
@@ -52,7 +71,6 @@ describe('sessions', () => {
   });
 
   it('refuses to start in a nonexistent directory', () => {
-    // Test via subprocess since process.exit(1) would kill the test runner
     const result = spawnSync('node', [bin, 'start', 'test', '--path', '/nonexistent-gabbo-test-dir'], {
       encoding: 'utf8',
     });
@@ -61,24 +79,20 @@ describe('sessions', () => {
   });
 
   it('refuses to start in an untrusted directory', () => {
-    // Use a real directory that is unlikely to be trusted
     const result = spawnSync('node', [bin, 'start', 'test', '--path', '/var/empty'], {
       encoding: 'utf8',
     });
-    // Either it doesn't exist or it's not trusted — both should exit 1
     assert.strictEqual(result.status, 1);
   });
 
   it('rejects duplicate session names', () => {
     sessions.start(TEST_SESSION, '/tmp', bashAgent);
 
-    // Use a helper script that calls sessions.start with bashAgent to avoid
-    // the CLI's claude agent (which won't trust /tmp).
     const result = spawnSync('node', ['-e', `
-      const s = require('./lib/sessions');
+      import * as s from './dist/src/sessions.js';
       const a = { name:'t', binary:'bash', startCommand(){return 'bash'}, isTrusted(){return true} };
       s.start('${TEST_SESSION}', '/tmp', a);
-    `], { encoding: 'utf8', cwd: path.join(__dirname, '..') });
+    `], { encoding: 'utf8', cwd: path.join(__dirname, '..', '..') });
     assert.strictEqual(result.status, 1);
     assert.ok(result.stderr.includes('already exists'));
 

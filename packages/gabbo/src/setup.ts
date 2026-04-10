@@ -1,14 +1,15 @@
-const { spawnSync, execFileSync } = require('child_process');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
+import { spawnSync } from 'child_process';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import type { Agent } from './types.js';
 
-function checkBinary(name) {
+function checkBinary(name: string): boolean {
   const result = spawnSync('which', [name]);
   return result.status === 0;
 }
 
-function setup(agent) {
+export function setup(agent: Agent): void {
   let ok = true;
 
   for (const bin of ['tmux', 'node', agent.binary]) {
@@ -37,7 +38,7 @@ function setup(agent) {
   console.log('\nSetup complete.');
 }
 
-function trust(dir, agent) {
+export function trust(dir: string, agent: Agent): void {
   const expanded = dir.startsWith('~') ? dir.replace(/^~/, os.homedir()) : dir;
   const resolved = path.resolve(expanded);
   if (!fs.existsSync(resolved)) {
@@ -48,5 +49,3 @@ function trust(dir, agent) {
   console.log(`Opening ${agent.name} in ${resolved} — accept the trust prompt, then exit.`);
   spawnSync(agent.trustCommand(), { cwd: resolved, stdio: 'inherit', shell: true });
 }
-
-module.exports = { setup, trust };

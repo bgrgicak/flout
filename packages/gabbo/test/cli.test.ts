@@ -1,18 +1,20 @@
-const { describe, it } = require('node:test');
-const assert = require('node:assert');
-const { execFileSync } = require('child_process');
-const path = require('path');
+import { describe, it } from 'node:test';
+import assert from 'node:assert';
+import { execFileSync } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const bin = path.join(__dirname, '..', 'bin', 'gabbo.js');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const bin = path.join(__dirname, '..', '..', 'bin', 'gabbo.js');
 
-function run(...args) {
+function run(...args: string[]): { stdout: string; stderr: string; exitCode: number } {
   try {
     const stdout = execFileSync('node', [bin, ...args], {
       encoding: 'utf8',
       timeout: 5000,
     });
-    return { stdout, exitCode: 0 };
-  } catch (err) {
+    return { stdout, stderr: '', exitCode: 0 };
+  } catch (err: any) {
     return { stdout: err.stdout || '', stderr: err.stderr || '', exitCode: err.status };
   }
 }

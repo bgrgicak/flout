@@ -1,17 +1,18 @@
-const { execFileSync, spawnSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+import { execFileSync, spawnSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import type { Agent } from './types.js';
 
-function sessionName(name) {
+function sessionName(name: string): string {
   return name.toLowerCase();
 }
 
-function sessionExists(session) {
+function sessionExists(session: string): boolean {
   const result = spawnSync('tmux', ['has-session', '-t', `=${session}`]);
   return result.status === 0;
 }
 
-function start(name, dir, agent) {
+export function start(name: string, dir: string, agent: Agent): void {
   const resolved = path.resolve(dir);
   if (!fs.existsSync(resolved)) {
     console.error(`Error: directory '${resolved}' does not exist`);
@@ -34,7 +35,7 @@ function start(name, dir, agent) {
   console.log(`Session '${name}' started in ${resolved}`);
 }
 
-function remote(name, dir, agent) {
+export function remote(name: string, dir: string, agent: Agent): void {
   const resolved = path.resolve(dir);
   if (!fs.existsSync(resolved)) {
     console.error(`Error: directory '${resolved}' does not exist`);
@@ -61,7 +62,7 @@ function remote(name, dir, agent) {
   console.log(`Remote session '${name}' started in ${resolved} (auto-reconnect enabled)`);
 }
 
-function stop(name) {
+export function stop(name: string): void {
   const session = sessionName(name);
   const result = spawnSync('tmux', ['kill-session', '-t', session]);
   if (result.status === 0) {
@@ -72,7 +73,7 @@ function stop(name) {
   }
 }
 
-function join(name) {
+export function join(name: string): void {
   const session = sessionName(name);
   const result = spawnSync('tmux', ['attach', '-t', session], { stdio: 'inherit' });
   if (result.status !== 0) {
@@ -81,20 +82,20 @@ function join(name) {
   }
 }
 
-function list() {
+export function list(): void {
   const result = spawnSync('tmux', ['list-sessions'], { stdio: 'inherit' });
   if (result.status !== 0) {
     console.log('No active sessions.');
   }
 }
 
-function restart(name, dir, agent) {
+export function restart(name: string, dir: string, agent: Agent): void {
   const session = sessionName(name);
   spawnSync('tmux', ['kill-session', '-t', session]);
   remote(name, dir, agent);
 }
 
-function status(agent) {
+export function status(agent: Agent): void {
   if (!agent.isAuthenticated()) {
     console.log('Not logged in. Run: claude auth login');
     console.log('Then: gabbo remote claude');
@@ -107,5 +108,3 @@ function status(agent) {
     console.log('No sessions running. Run: gabbo remote claude');
   }
 }
-
-module.exports = { start, remote, stop, join, list, restart, status };
