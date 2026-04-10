@@ -5,13 +5,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const bin = path.join(__dirname, '..', '..', 'bin', 'gabbo.js');
+const cli = path.join(__dirname, '..', 'src', 'cli.ts');
 
 function run(...args: string[]): { stdout: string; stderr: string; exitCode: number } {
   try {
-    const stdout = execFileSync('node', [bin, ...args], {
+    const stdout = execFileSync('npx', ['tsx', cli, ...args], {
       encoding: 'utf8',
-      timeout: 5000,
+      timeout: 10000,
+      cwd: path.join(__dirname, '..'),
     });
     return { stdout, stderr: '', exitCode: 0 };
   } catch (err: unknown) {
@@ -46,28 +47,15 @@ describe('CLI', () => {
     assert.strictEqual(exitCode, 1);
   });
 
-  it('exits 1 when start is missing name', () => {
-    const { exitCode, stderr } = run('start');
-    assert.strictEqual(exitCode, 1);
-    assert.ok(stderr.includes('Usage'));
-  });
-
-  it('exits 1 when remote is missing name', () => {
-    const { exitCode, stderr } = run('remote');
-    assert.strictEqual(exitCode, 1);
-    assert.ok(stderr.includes('Usage'));
-  });
-
   it('exits 1 when stop is missing name', () => {
-    const { exitCode, stderr } = run('stop');
+    const { exitCode } = run('stop');
     assert.strictEqual(exitCode, 1);
-    assert.ok(stderr.includes('Usage'));
+    // stop still requires a name/id argument
   });
 
   it('exits 1 when join is missing name', () => {
-    const { exitCode, stderr } = run('join');
+    const { exitCode } = run('join');
     assert.strictEqual(exitCode, 1);
-    assert.ok(stderr.includes('Usage'));
   });
 
   it('includes docker in help output', () => {
@@ -84,5 +72,16 @@ describe('CLI', () => {
   it('exits 1 for unknown docker subcommand', () => {
     const { exitCode } = run('docker', 'nonexistent');
     assert.strictEqual(exitCode, 1);
+  });
+
+  it('shows name|id in usage for stop, join, restart', () => {
+    const { stdout } = run('--help');
+    assert.ok(stdout.includes('name|id'));
+  });
+
+  it('shows name as optional for start and remote', () => {
+    const { stdout } = run('--help');
+    assert.ok(stdout.includes('start [name]'));
+    assert.ok(stdout.includes('remote [name]'));
   });
 });

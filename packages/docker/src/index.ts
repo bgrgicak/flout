@@ -3,7 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-interface DockerAgent {
+export interface DockerAgent {
   encodePath(dir: string): string;
 }
 
@@ -32,8 +32,22 @@ ENV PATH="/home/dev/.local/bin:\${PATH}"
 CMD ["sleep", "infinity"]
 `;
 
-function containerName(name: string): string {
-  return CONTAINER_PREFIX + name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+function timestamp(): string {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  return `${mm}${dd}-${hh}${min}${ss}`;
+}
+
+function sanitizeLabel(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+}
+
+function generateContainerName(label: string): string {
+  return `gabbo-${timestamp()}-${sanitizeLabel(label)}`;
 }
 
 function imageExists(): boolean {
@@ -41,15 +55,8 @@ function imageExists(): boolean {
   return result.status === 0;
 }
 
-function containerExists(name: string): boolean {
-  const full = containerName(name);
-  const result = spawnSync('docker', ['container', 'inspect', full], { stdio: 'ignore' });
-  return result.status === 0;
-}
-
 function containerRunning(name: string): boolean {
-  const full = containerName(name);
-  const result = spawnSync('docker', ['container', 'inspect', '--format', '{{.State.Running}}', full], { encoding: 'utf8' });
+  const result = spawnSync('docker', ['container', 'inspect', '--format', '{{.State.Running}}', name], { encoding: 'utf8' });
   return result.status === 0 && result.stdout.trim() === 'true';
 }
 
@@ -72,6 +79,37 @@ function buildImage(): void {
   }
 }
 
+function listGabboContainers(): string[] {
+  const result = spawnSync('docker', ['ps', '-a', '--filter', `name=${CONTAINER_PREFIX}`, '--format', '{{.Names}}'], { encoding: 'utf8' });
+  if (result.status !== 0 || !result.stdout.trim()) return [];
+  return result.stdout.trim().split('\n');
+}
+
+export function resolveContainer(query: string): string {
+  const containers = listGabboContainers();
+  const q = sanitizeLabel(query);
+
+  const exact = containers.find(c => c === q);
+  if (exact) return exact;
+
+  const matches = containers.filter(c => c.endsWith('-' + q));
+  if (matches.length === 1) return matches[0];
+
+  if (matches.length === 0) {
+    console.error(`No containers matching '${query}' found.`);
+    process.exit(1);
+  }
+
+  console.error(`Multiple containers match '${query}':`);
+  for (const c of matches) {
+    const info = spawnSync('docker', ['inspect', '--format', '{{.State.Status}}', c], { encoding: 'utf8' });
+    const state = info.stdout?.trim() || '?';
+    console.error(`  ${c}  (${state})`);
+  }
+  console.error(`\nUse the full container name to specify which one.`);
+  process.exit(1);
+}
+
 export interface DockerStartOptions {
   name: string;
   cwd: string;
@@ -79,27 +117,16 @@ export interface DockerStartOptions {
   agent: DockerAgent;
 }
 
-export function start({ name, cwd, extraArgs, agent }: DockerStartOptions): void {
+export function start({ name, cwd, extraArgs, agent }: DockerStartOptions): string {
   checkDocker();
 
   if (!imageExists()) {
     buildImage();
   }
 
-  const full = containerName(name);
+  const full = generateContainerName(name);
   const basename = path.basename(cwd);
   const mountTarget = `/home/dev/${basename}`;
-
-  if (containerRunning(name)) {
-    console.log(`Container '${full}' is already running.`);
-    return;
-  }
-
-  if (containerExists(name)) {
-    execFileSync('docker', ['start', full], { stdio: 'inherit' });
-    console.log(`Container '${full}' started.`);
-    return;
-  }
 
   const gitName = spawnSync('git', ['config', 'user.name'], { encoding: 'utf8' }).stdout.trim();
   const gitEmail = spawnSync('git', ['config', 'user.email'], { encoding: 'utf8' }).stdout.trim();
@@ -126,6 +153,7 @@ export function start({ name, cwd, extraArgs, agent }: DockerStartOptions): void
   spawnSync('docker', ['exec', full, 'mkdir', '-p', trustDir]);
 
   console.log(`Container '${full}' created and running.`);
+  return full;
 }
 
 export interface DockerStopOptions {
@@ -134,12 +162,12 @@ export interface DockerStopOptions {
 
 export function stop({ name }: DockerStopOptions): void {
   checkDocker();
-  const full = containerName(name);
+  const full = resolveContainer(name);
   const result = spawnSync('docker', ['stop', full], { stdio: 'inherit' });
   if (result.status === 0) {
     console.log(`Container '${full}' stopped.`);
   } else {
-    console.error(`No running container '${full}' found.`);
+    console.error(`Failed to stop container '${full}'.`);
     process.exit(1);
   }
 }
@@ -150,15 +178,36 @@ export interface DockerShellOptions {
 
 export function shell({ name }: DockerShellOptions): void {
   checkDocker();
-  const full = containerName(name);
-  const mountTarget = `/home/dev/${name}`;
+  const full = resolveContainer(name);
 
-  if (!containerRunning(name)) {
+  if (!containerRunning(full)) {
     console.error(`Container '${full}' is not running.`);
     process.exit(1);
   }
 
-  const result = spawnSync('docker', ['exec', '-it', '-w', mountTarget, full, 'bash'], { stdio: 'inherit' });
+  const result = spawnSync('docker', ['exec', '-it', full, 'bash'], { stdio: 'inherit' });
+  if (result.status !== 0 && result.status !== null) {
+    process.exit(result.status);
+  }
+}
+
+export interface DockerClaudeOptions {
+  name: string;
+}
+
+export function claude({ name }: DockerClaudeOptions): void {
+  checkDocker();
+  const full = resolveContainer(name);
+
+  if (!containerRunning(full)) {
+    console.error(`Container '${full}' is not running.`);
+    process.exit(1);
+  }
+
+  const result = spawnSync('docker', [
+    'exec', '-it', full,
+    'claude', '--permission-mode', 'bypassPermissions',
+  ], { stdio: 'inherit' });
   if (result.status !== 0 && result.status !== null) {
     process.exit(result.status);
   }
@@ -166,11 +215,14 @@ export function shell({ name }: DockerShellOptions): void {
 
 export function status(): void {
   checkDocker();
+  const containers = listGabboContainers();
+  if (containers.length === 0) {
+    console.log('No gabbo containers found.');
+    return;
+  }
   const result = spawnSync('docker', ['ps', '-a', '--filter', `name=${CONTAINER_PREFIX}`, '--format', 'table {{.Names}}\t{{.Status}}'], { encoding: 'utf8' });
   if (result.status === 0 && result.stdout.trim()) {
     console.log(result.stdout.trimEnd());
-  } else {
-    console.log('No gabbo containers found.');
   }
 }
 
@@ -179,7 +231,8 @@ export function usage(): void {
 
 Usage:
   gabbo docker start [--name <n>] [-- <docker args>]  Build image & start container
-  gabbo docker stop [--name <n>]                       Stop a container
-  gabbo docker shell [--name <n>]                      Exec into a container
+  gabbo docker stop [<name|id>]                        Stop a container
+  gabbo docker shell [<name|id>]                       Exec into a container
+  gabbo docker claude [<name|id>]                      Exec into a container running Claude
   gabbo docker status                                  List gabbo containers`);
 }

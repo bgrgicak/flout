@@ -3,16 +3,56 @@ import fs from 'fs';
 import path from 'path';
 import type { Agent } from './types.js';
 
-function sessionName(name: string): string {
-  return name.toLowerCase();
+function timestamp(): string {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  return `${mm}${dd}-${hh}${min}${ss}`;
 }
 
-function sessionExists(session: string): boolean {
-  const result = spawnSync('tmux', ['has-session', '-t', `=${session}`]);
-  return result.status === 0;
+function sanitizeLabel(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9-]/g, '-');
 }
 
-export function start(name: string, dir: string, agent: Agent): void {
+function generateSessionId(label: string): string {
+  return `gabbo-${timestamp()}-${sanitizeLabel(label)}`;
+}
+
+function listGabboSessions(): string[] {
+  const result = spawnSync('tmux', ['list-sessions', '-F', '#{session_name}'], { encoding: 'utf8' });
+  if (result.status !== 0) return [];
+  return result.stdout.trim().split('\n').filter(s => s.startsWith('gabbo-'));
+}
+
+export function resolveSession(query: string): string {
+  const sessions = listGabboSessions();
+  const q = sanitizeLabel(query);
+
+  const exact = sessions.find(s => s === q);
+  if (exact) return exact;
+
+  const matches = sessions.filter(s => s.endsWith('-' + q));
+  if (matches.length === 1) return matches[0];
+
+  if (matches.length === 0) {
+    console.error(`No sessions matching '${query}' found.`);
+    process.exit(1);
+  }
+
+  console.error(`Multiple sessions match '${query}':`);
+  for (const s of matches) {
+    const info = spawnSync('tmux', ['display-message', '-t', s, '-p', '#{pane_current_path}'], { encoding: 'utf8' });
+    const dir = info.stdout?.trim() || '?';
+    console.error(`  ${s}  ${dir}`);
+  }
+  console.error(`\nUse the full session ID to specify which one.`);
+  process.exit(1);
+}
+
+export function start(label: string, dir: string, agent: Agent): string {
   const resolved = path.resolve(dir);
   if (!fs.existsSync(resolved)) {
     console.error(`Error: directory '${resolved}' does not exist`);
@@ -23,19 +63,16 @@ export function start(name: string, dir: string, agent: Agent): void {
     console.error(`Run: gabbo trust ${resolved}`);
     process.exit(1);
   }
-  const session = sessionName(name);
-  if (sessionExists(session)) {
-    console.error(`Session '${name}' already exists.`);
-    process.exit(1);
-  }
+  const session = generateSessionId(label);
   execFileSync('tmux', [
     'new-session', '-d', '-s', session, '-c', resolved,
     agent.startCommand(),
   ]);
-  console.log(`Session '${name}' started in ${resolved}`);
+  console.log(`Session '${session}' started in ${resolved}`);
+  return session;
 }
 
-export function remote(name: string, dir: string, agent: Agent): void {
+export function remote(label: string, dir: string, agent: Agent): string {
   const resolved = path.resolve(dir);
   if (!fs.existsSync(resolved)) {
     console.error(`Error: directory '${resolved}' does not exist`);
@@ -50,49 +87,53 @@ export function remote(name: string, dir: string, agent: Agent): void {
     console.error(`Run: gabbo trust ${resolved}`);
     process.exit(1);
   }
-  const session = sessionName(name);
-  if (sessionExists(session)) {
-    console.error(`Session '${name}' already exists.`);
-    process.exit(1);
-  }
-  const cmd = `while true; do ${agent.remoteCommand(name)}; echo "Connection dropped. Restarting in 5s..."; sleep 5; done`;
+  const session = generateSessionId(label);
+  const cmd = `while true; do ${agent.remoteCommand(session)}; echo "Connection dropped. Restarting in 5s..."; sleep 5; done`;
   execFileSync('tmux', [
     'new-session', '-d', '-s', session, '-c', resolved, cmd,
   ]);
-  console.log(`Remote session '${name}' started in ${resolved} (auto-reconnect enabled)`);
+  console.log(`Remote session '${session}' started in ${resolved} (auto-reconnect enabled)`);
+  return session;
 }
 
-export function stop(name: string): void {
-  const session = sessionName(name);
+export function stop(query: string): void {
+  const session = resolveSession(query);
   const result = spawnSync('tmux', ['kill-session', '-t', session]);
   if (result.status === 0) {
-    console.log(`Session '${name}' stopped.`);
+    console.log(`Session '${session}' stopped.`);
   } else {
-    console.error(`No session named '${session}' found.`);
+    console.error(`Failed to stop session '${session}'.`);
     process.exit(1);
   }
 }
 
-export function join(name: string): void {
-  const session = sessionName(name);
+export function join(query: string): void {
+  const session = resolveSession(query);
   const result = spawnSync('tmux', ['attach', '-t', session], { stdio: 'inherit' });
   if (result.status !== 0) {
-    console.error(`No session named '${session}' found.`);
+    console.error(`Failed to attach to session '${session}'.`);
     process.exit(1);
   }
 }
 
 export function list(): void {
-  const result = spawnSync('tmux', ['list-sessions'], { stdio: 'inherit' });
-  if (result.status !== 0) {
+  const sessions = listGabboSessions();
+  if (sessions.length === 0) {
     console.log('No active sessions.');
+    return;
+  }
+  for (const s of sessions) {
+    const info = spawnSync('tmux', ['display-message', '-t', s, '-p', '#{pane_current_path}'], { encoding: 'utf8' });
+    const dir = info.stdout?.trim() || '?';
+    console.log(`${s}  ${dir}`);
   }
 }
 
-export function restart(name: string, dir: string, agent: Agent): void {
-  const session = sessionName(name);
+export function restart(query: string, dir: string, agent: Agent): string {
+  const session = resolveSession(query);
   spawnSync('tmux', ['kill-session', '-t', session]);
-  remote(name, dir, agent);
+  const label = session.replace(/^gabbo-\d{4}-\d{6}-/, '');
+  return remote(label, dir, agent);
 }
 
 export function status(agent: Agent): void {
@@ -101,10 +142,5 @@ export function status(agent: Agent): void {
     console.log('Then: gabbo remote claude');
     return;
   }
-  const result = spawnSync('tmux', ['list-sessions'], { encoding: 'utf8' });
-  if (result.status === 0) {
-    console.log(result.stdout.trimEnd());
-  } else {
-    console.log('No sessions running. Run: gabbo remote claude');
-  }
+  list();
 }

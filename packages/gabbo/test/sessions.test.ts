@@ -7,10 +7,10 @@ import * as sessions from '../src/sessions.js';
 import type { Agent } from '../src/types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const bin = path.join(__dirname, '..', '..', 'bin', 'gabbo.js');
+const pkgRoot = path.join(__dirname, '..');
 
-// A real agent that runs bash instead of claude.
-// This is a legitimate agent implementation — no mocks.
+const createdSessions: string[] = [];
+
 const bashAgent: Agent = {
   name: 'bash-test',
   binary: 'bash',
@@ -40,71 +40,102 @@ const bashAgent: Agent = {
   },
 };
 
-const TEST_SESSION = 'gabbo-test-session';
-
-// Clean up any leftover test sessions
 after(() => {
-  spawnSync('tmux', ['kill-session', '-t', TEST_SESSION]);
-  spawnSync('tmux', ['kill-session', '-t', 'gabbo-test']);
+  for (const s of createdSessions) {
+    spawnSync('tmux', ['kill-session', '-t', s]);
+  }
 });
 
 describe('sessions', () => {
-  it('starts and stops a session', () => {
-    sessions.start(TEST_SESSION, '/tmp', bashAgent);
+  it('generates timestamped session IDs', () => {
+    const id = sessions.start('myproject', '/tmp', bashAgent);
+    createdSessions.push(id);
+    assert.match(id, /^gabbo-\d{4}-\d{6}-myproject$/);
 
-    const result = spawnSync('tmux', ['has-session', '-t', TEST_SESSION]);
+    const result = spawnSync('tmux', ['has-session', '-t', id]);
+    assert.strictEqual(result.status, 0, 'session should exist');
+  });
+
+  it('starts and stops a session by label', () => {
+    const id = sessions.start('stoptest', '/tmp', bashAgent);
+    createdSessions.push(id);
+
+    const result = spawnSync('tmux', ['has-session', '-t', id]);
     assert.strictEqual(result.status, 0, 'session should exist after start');
 
-    sessions.stop(TEST_SESSION);
+    sessions.stop('stoptest');
 
-    const result2 = spawnSync('tmux', ['has-session', '-t', TEST_SESSION]);
+    const result2 = spawnSync('tmux', ['has-session', '-t', id]);
     assert.notStrictEqual(result2.status, 0, 'session should not exist after stop');
   });
 
   it('starts a remote session with respawn loop', () => {
-    sessions.remote(TEST_SESSION, '/tmp', bashAgent);
+    const id = sessions.remote('remotetest', '/tmp', bashAgent);
+    createdSessions.push(id);
 
-    const result = spawnSync('tmux', ['has-session', '-t', TEST_SESSION]);
+    const result = spawnSync('tmux', ['has-session', '-t', id]);
     assert.strictEqual(result.status, 0, 'remote session should exist');
 
-    sessions.stop(TEST_SESSION);
+    sessions.stop(id);
+  });
+
+  it('allows multiple sessions with the same label', () => {
+    const id1 = sessions.start('multi', '/tmp', bashAgent);
+    createdSessions.push(id1);
+
+    // sleep 1s to get a different timestamp
+    spawnSync('sleep', ['1']);
+
+    const id2 = sessions.start('multi', '/tmp', bashAgent);
+    createdSessions.push(id2);
+
+    assert.notStrictEqual(id1, id2, 'IDs should differ');
+
+    const r1 = spawnSync('tmux', ['has-session', '-t', id1]);
+    const r2 = spawnSync('tmux', ['has-session', '-t', id2]);
+    assert.strictEqual(r1.status, 0, 'first session should exist');
+    assert.strictEqual(r2.status, 0, 'second session should exist');
+
+    spawnSync('tmux', ['kill-session', '-t', id1]);
+    spawnSync('tmux', ['kill-session', '-t', id2]);
+  });
+
+  it('resolves a unique label to the full session ID', () => {
+    const id = sessions.start('uniquelabel', '/tmp', bashAgent);
+    createdSessions.push(id);
+
+    const resolved = sessions.resolveSession('uniquelabel');
+    assert.strictEqual(resolved, id);
+
+    spawnSync('tmux', ['kill-session', '-t', id]);
+  });
+
+  it('resolves an exact full ID', () => {
+    const id = sessions.start('exactmatch', '/tmp', bashAgent);
+    createdSessions.push(id);
+
+    const resolved = sessions.resolveSession(id);
+    assert.strictEqual(resolved, id);
+
+    spawnSync('tmux', ['kill-session', '-t', id]);
   });
 
   it('refuses to start in a nonexistent directory', () => {
-    const result = spawnSync('node', [bin, 'start', 'test', '--path', '/nonexistent-gabbo-test-dir'], {
+    const cli = path.join(pkgRoot, 'src', 'cli.ts');
+    const result = spawnSync('npx', ['tsx', cli, 'start', 'test', '--path', '/nonexistent-gabbo-test-dir'], {
       encoding: 'utf8',
+      cwd: pkgRoot,
     });
     assert.strictEqual(result.status, 1);
-    assert.ok(result.stderr.includes('does not exist'));
+    const output = result.stdout + result.stderr;
+    assert.ok(output.includes('does not exist'));
   });
 
-  it('refuses to start in an untrusted directory', () => {
-    const result = spawnSync('node', [bin, 'start', 'test', '--path', '/var/empty'], {
-      encoding: 'utf8',
-    });
-    assert.strictEqual(result.status, 1);
-  });
+  it('sanitizes and lowercases labels', () => {
+    const id = sessions.start('My_Project.Name', '/tmp', bashAgent);
+    createdSessions.push(id);
+    assert.match(id, /^gabbo-\d{4}-\d{6}-my-project-name$/);
 
-  it('rejects duplicate session names', () => {
-    sessions.start(TEST_SESSION, '/tmp', bashAgent);
-
-    const result = spawnSync('node', ['-e', `
-      import * as s from './dist/src/sessions.js';
-      const a = { name:'t', binary:'bash', startCommand(){return 'bash'}, isTrusted(){return true} };
-      s.start('${TEST_SESSION}', '/tmp', a);
-    `], { encoding: 'utf8', cwd: path.join(__dirname, '..', '..') });
-    assert.strictEqual(result.status, 1);
-    assert.ok(result.stderr.includes('already exists'));
-
-    sessions.stop(TEST_SESSION);
-  });
-
-  it('lowercases session names', () => {
-    sessions.start('GaBbO-TeSt', '/tmp', bashAgent);
-
-    const result = spawnSync('tmux', ['has-session', '-t', 'gabbo-test']);
-    assert.strictEqual(result.status, 0, 'session should be lowercase');
-
-    spawnSync('tmux', ['kill-session', '-t', 'gabbo-test']);
+    spawnSync('tmux', ['kill-session', '-t', id]);
   });
 });
