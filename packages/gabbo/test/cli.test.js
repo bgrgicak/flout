@@ -66,4 +66,20 @@ describe('CLI', () => {
     assert.strictEqual(exitCode, 1);
     assert.ok(stderr.includes('Usage'));
   });
+
+  it('includes docker in help output', () => {
+    const { stdout } = run('--help');
+    assert.ok(stdout.includes('docker'));
+  });
+
+  it('prints docker usage with no docker subcommand', () => {
+    const { stdout, exitCode } = run('docker');
+    assert.strictEqual(exitCode, 0);
+    assert.ok(stdout.includes('gabbo docker'));
+  });
+
+  it('exits 1 for unknown docker subcommand', () => {
+    const { exitCode } = run('docker', 'nonexistent');
+    assert.strictEqual(exitCode, 1);
+  });
 });

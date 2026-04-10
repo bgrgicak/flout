@@ -1,3 +1,4 @@
+const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -25,6 +26,11 @@ module.exports = {
 
   setupTokenCommand() {
     return 'claude setup-token';
+  },
+
+  isAuthenticated() {
+    const result = spawnSync(this.binary, ['auth', 'status']);
+    return result.status === 0;
   },
 
   isTrusted(dir) {

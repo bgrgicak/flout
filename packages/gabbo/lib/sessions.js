@@ -40,6 +40,10 @@ function remote(name, dir, agent) {
     console.error(`Error: directory '${resolved}' does not exist`);
     process.exit(1);
   }
+  if (!agent.isAuthenticated()) {
+    console.error(`Not logged in. Run: ${agent.loginCommand()}`);
+    process.exit(1);
+  }
   if (!agent.isTrusted(resolved)) {
     console.error(`Directory '${resolved}' is not trusted.`);
     console.error(`Run: gabbo trust ${resolved}`);
@@ -90,4 +94,18 @@ function restart(name, dir, agent) {
   remote(name, dir, agent);
 }
 
-module.exports = { start, remote, stop, join, list, restart };
+function status(agent) {
+  if (!agent.isAuthenticated()) {
+    console.log('Not logged in. Run: claude auth login');
+    console.log('Then: gabbo remote claude');
+    return;
+  }
+  const result = spawnSync('tmux', ['list-sessions'], { encoding: 'utf8' });
+  if (result.status === 0) {
+    console.log(result.stdout.trimEnd());
+  } else {
+    console.log('No sessions running. Run: gabbo remote claude');
+  }
+}
+
+module.exports = { start, remote, stop, join, list, restart, status };
