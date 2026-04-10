@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/claude" },
+    { "path": "packages/docker" },
+    { "path": "packages/gabbo" }
+  ]
+}
