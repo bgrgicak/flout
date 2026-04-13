@@ -1,5 +1,6 @@
 import fs from 'fs';
 import http from 'http';
+import path from 'path';
 
 export const MOCK_CREDENTIALS = {
   claudeAiOauth: {
@@ -88,6 +89,7 @@ export function installMockCredentials(credentialsPath: string): string | null {
   if (fs.existsSync(credentialsPath)) {
     backup = fs.readFileSync(credentialsPath, 'utf8');
   }
+  fs.mkdirSync(path.dirname(credentialsPath), { recursive: true });
   fs.writeFileSync(credentialsPath, JSON.stringify(MOCK_CREDENTIALS, null, 2));
   return backup;
 }
