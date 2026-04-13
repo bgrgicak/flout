@@ -1,6 +1,6 @@
 {
   "name": "gabbo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Manage persistent AI agent sessions with tmux",
   "main": "dist/src/index.js",
