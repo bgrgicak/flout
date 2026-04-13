@@ -13,16 +13,15 @@ const CONTAINER_PREFIX = 'gabbo-';
 const EMBEDDED_DOCKERFILE = `FROM node:20-slim
 
 RUN apt-get update && apt-get install -y \\
-    bash curl git sudo tmux \\
+    bash curl git tmux \\
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m -s /bin/bash dev \\
-    && adduser dev sudo \\
-    && echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+RUN npm install -g gabbo
+
+RUN useradd -m -s /bin/bash dev
 
 USER dev
 RUN curl -fsSL https://claude.ai/install.sh | bash
-RUN npm install -g gabbo
 
 WORKDIR /home/dev
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/dev/.bashrc \\
