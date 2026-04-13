@@ -5,10 +5,10 @@
   ],
   "scripts": {
     "build": "tsc --build",
-    "cli": "tsx packages/flout/src/cli.ts",
-    "dev": "tsc --build && node packages/flout/bin/flout.js",
+    "cli": "tsx packages/cli/src/cli.ts",
+    "dev": "tsc --build && node packages/cli/bin/flout.js",
     "test": "tsc --build && npm test --workspaces",
-    "test:e2e": "tsc --build && npm run test:e2e --workspace=flout",
+    "test:e2e": "tsc --build && npm run test:e2e --workspace=@flout/cli",
     "clean": "tsc --build --clean",
     "publish-all": "npm run build && npm publish --workspaces"
   },

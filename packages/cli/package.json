@@ -1,5 +1,5 @@
 {
-  "name": "flout",
+  "name": "@flout/cli",
   "version": "0.1.1",
   "type": "module",
   "description": "Manage persistent AI agent sessions with tmux",
@@ -22,7 +22,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/bgrgicak/flout.git",
-    "directory": "packages/flout"
+    "directory": "packages/cli"
   },
   "homepage": "https://github.com/bgrgicak/flout",
   "author": "Bero",
