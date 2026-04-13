@@ -15,6 +15,7 @@ const pkgRoot = path.resolve(__dirname, '..', '..');
 let mockPort: number;
 let mockServer: { server: import('http').Server; port: number };
 let credentialsBackup: string | null = null;
+let mockBinDir: string;
 const credentialsPath = path.join(os.homedir(), '.claude', '.credentials.json');
 const createdSessions: string[] = [];
 
@@ -26,6 +27,7 @@ function flout(...args: string[]): { stdout: string; stderr: string; exitCode: n
     env: {
       ...process.env,
       CLAUDE_CODE_API_BASE_URL: `http://127.0.0.1:${mockPort}`,
+      PATH: `${mockBinDir}${path.delimiter}${process.env.PATH}`,
     },
   });
   return { stdout: result.stdout, stderr: result.stderr, exitCode: result.status };
@@ -54,6 +56,13 @@ describe('e2e: sessions', () => {
 
     const trustDir = path.join(os.homedir(), '.claude', 'projects', encodePath('/tmp'));
     fs.mkdirSync(trustDir, { recursive: true });
+
+    // Create a mock claude binary so tmux sessions stay alive in CI
+    mockBinDir = fs.mkdtempSync(path.join(os.tmpdir(), 'flout-mock-bin-'));
+    fs.writeFileSync(path.join(mockBinDir, 'claude'), '#!/bin/sh\nif [ "$1" = "auth" ]; then exit 0; fi\nsleep 300\n');
+    fs.chmodSync(path.join(mockBinDir, 'claude'), 0o755);
+    // Ensure tmux sessions can find the mock claude binary
+    spawnSync('tmux', ['set-environment', '-g', 'PATH', `${mockBinDir}${path.delimiter}${process.env.PATH}`]);
   });
 
   after(() => {
@@ -63,6 +72,7 @@ describe('e2e: sessions', () => {
       spawnSync('tmux', ['kill-session', '-t', s]);
     }
     killFloutSessions();
+    fs.rmSync(mockBinDir, { recursive: true, force: true });
   });
 
   it('starts a session with a name', () => {
