@@ -5,8 +5,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { encodePath } from '@gabbo/claude';
-import { startMockServer, installMockCredentials, restoreCredentials } from '@gabbo/claude-mock-api';
+import { encodePath } from '@flout/claude';
+import { startMockServer, installMockCredentials, restoreCredentials } from '@flout/claude-mock-api';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const cli = path.resolve(__dirname, '..', '..', 'src', 'cli.ts');
@@ -18,7 +18,7 @@ let credentialsBackup: string | null = null;
 const credentialsPath = path.join(os.homedir(), '.claude', '.credentials.json');
 const createdSessions: string[] = [];
 
-function gabbo(...args: string[]): { stdout: string; stderr: string; exitCode: number | null } {
+function flout(...args: string[]): { stdout: string; stderr: string; exitCode: number | null } {
   const result = spawnSync('npx', ['tsx', cli, ...args], {
     encoding: 'utf8',
     timeout: 15000,
@@ -32,15 +32,15 @@ function gabbo(...args: string[]): { stdout: string; stderr: string; exitCode: n
 }
 
 function extractSessionId(output: string): string | null {
-  const match = output.match(/Session '(gabbo-\d{4}-\d{6}-[a-z0-9-]+)'/);
+  const match = output.match(/Session '(flout-\d{4}-\d{6}-[a-z0-9-]+)'/);
   return match ? match[1] : null;
 }
 
-function killGabboSessions(): void {
+function killFloutSessions(): void {
   const result = spawnSync('tmux', ['list-sessions', '-F', '#{session_name}'], { encoding: 'utf8' });
   if (result.status !== 0) return;
   for (const s of result.stdout.trim().split('\n')) {
-    if (s.startsWith('gabbo-')) {
+    if (s.startsWith('flout-')) {
       spawnSync('tmux', ['kill-session', '-t', s]);
     }
   }
@@ -62,40 +62,40 @@ describe('e2e: sessions', () => {
     for (const s of createdSessions) {
       spawnSync('tmux', ['kill-session', '-t', s]);
     }
-    killGabboSessions();
+    killFloutSessions();
   });
 
   it('starts a session with a name', () => {
-    const result = gabbo('start', 'e2etest', '--path', '/tmp');
+    const result = flout('start', 'e2etest', '--path', '/tmp');
     assert.strictEqual(result.exitCode, 0, `stderr: ${result.stderr}`);
     const id = extractSessionId(result.stdout);
     assert.ok(id, 'should output session ID');
     createdSessions.push(id!);
-    assert.match(id!, /^gabbo-\d{4}-\d{6}-e2etest$/);
+    assert.match(id!, /^flout-\d{4}-\d{6}-e2etest$/);
   });
 
   it('starts a session with default name from cwd', () => {
-    const result = gabbo('start', '--path', '/tmp');
+    const result = flout('start', '--path', '/tmp');
     assert.strictEqual(result.exitCode, 0, `stderr: ${result.stderr}`);
     const id = extractSessionId(result.stdout);
     assert.ok(id, 'should output session ID');
     createdSessions.push(id!);
-    assert.ok(id!.includes('gabbo'), 'should contain cwd basename');
+    assert.ok(id!.includes('flout'), 'should contain cwd basename');
   });
 
   it('lists sessions with directories', () => {
-    const result = gabbo('list');
+    const result = flout('list');
     assert.strictEqual(result.exitCode, 0);
-    assert.ok(result.stdout.includes('gabbo-'), 'should list gabbo sessions');
+    assert.ok(result.stdout.includes('flout-'), 'should list flout sessions');
   });
 
   it('stops a session by label', () => {
-    const startResult = gabbo('start', 'stopme', '--path', '/tmp');
+    const startResult = flout('start', 'stopme', '--path', '/tmp');
     const id = extractSessionId(startResult.stdout);
     assert.ok(id);
     createdSessions.push(id!);
 
-    const stopResult = gabbo('stop', 'stopme');
+    const stopResult = flout('stop', 'stopme');
     assert.strictEqual(stopResult.exitCode, 0);
     assert.ok(stopResult.stdout.includes('stopped'));
 
@@ -104,24 +104,24 @@ describe('e2e: sessions', () => {
   });
 
   it('stops a session by full ID', () => {
-    const startResult = gabbo('start', 'byid', '--path', '/tmp');
+    const startResult = flout('start', 'byid', '--path', '/tmp');
     const id = extractSessionId(startResult.stdout);
     assert.ok(id);
     createdSessions.push(id!);
 
-    const stopResult = gabbo('stop', id!);
+    const stopResult = flout('stop', id!);
     assert.strictEqual(stopResult.exitCode, 0);
   });
 
   it('allows multiple sessions with the same label', () => {
-    const r1 = gabbo('start', 'multi', '--path', '/tmp');
+    const r1 = flout('start', 'multi', '--path', '/tmp');
     const id1 = extractSessionId(r1.stdout);
     assert.ok(id1);
     createdSessions.push(id1!);
 
     spawnSync('sleep', ['1']);
 
-    const r2 = gabbo('start', 'multi', '--path', '/tmp');
+    const r2 = flout('start', 'multi', '--path', '/tmp');
     const id2 = extractSessionId(r2.stdout);
     assert.ok(id2);
     createdSessions.push(id2!);
@@ -135,20 +135,20 @@ describe('e2e: sessions', () => {
   });
 
   it('disambiguates when multiple sessions match', () => {
-    const result = gabbo('stop', 'multi');
+    const result = flout('stop', 'multi');
     assert.strictEqual(result.exitCode, 1);
     const output = result.stdout + result.stderr;
     assert.ok(output.includes('Multiple sessions'), 'should show disambiguation');
   });
 
   it('shows status', () => {
-    const result = gabbo('status');
+    const result = flout('status');
     assert.strictEqual(result.exitCode, 0);
     assert.ok(!result.stdout.includes('Not logged in'));
   });
 
   it('fails for nonexistent session', () => {
-    const result = gabbo('stop', 'nonexistent-xyz-999');
+    const result = flout('stop', 'nonexistent-xyz-999');
     assert.strictEqual(result.exitCode, 1);
     const output = result.stdout + result.stderr;
     assert.ok(output.includes('No sessions matching'));

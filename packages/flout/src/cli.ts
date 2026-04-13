@@ -1,6 +1,6 @@
 import path from 'path';
-import claude from '@gabbo/claude';
-import * as docker from '@gabbo/docker';
+import claude from '@flout/claude';
+import * as docker from '@flout/docker';
 import * as sessions from './sessions.js';
 import { setup, trust } from './setup.js';
 import type { Agent } from './types.js';
@@ -28,22 +28,22 @@ function getNameArg(): string | null {
 }
 
 function usage(): void {
-  console.log(`gabbo — manage persistent AI agent sessions
+  console.log(`flout — manage persistent AI agent sessions
 
 Usage:
-  gabbo setup                          Check dependencies, login, create token
-  gabbo start [name] [--path <dir>]    Start a local session in tmux (sudo for sandbox)
-  gabbo remote [name] [--path <dir>]   Start a remote-control session (always-on)
-  gabbo stop <name|id>                 Stop a session
-  gabbo join <name|id>                 Attach to a running session
-  gabbo list                           List active sessions
-  gabbo status                         Show login and session status
-  gabbo restart <name|id> [--path <dir>]  Restart a remote session
-  gabbo trust <dir>                    Trust a project directory
-  gabbo docker <cmd> [<name|id>]       Manage Docker containers (start|stop|shell|claude|status)
+  flout setup                          Check dependencies, login, create token
+  flout start [name] [--path <dir>]    Start a local session in tmux (sudo for sandbox)
+  flout remote [name] [--path <dir>]   Start a remote-control session (always-on)
+  flout stop <name|id>                 Stop a session
+  flout join <name|id>                 Attach to a running session
+  flout list                           List active sessions
+  flout status                         Show login and session status
+  flout restart <name|id> [--path <dir>]  Restart a remote session
+  flout trust <dir>                    Trust a project directory
+  flout docker <cmd> [<name|id>]       Manage Docker containers (start|stop|shell|claude|status)
 
 Session names are optional for start/remote (defaults to directory basename).
-When multiple sessions share a name, use the full ID shown by gabbo list.`);
+When multiple sessions share a name, use the full ID shown by flout list.`);
 }
 
 switch (command) {
@@ -67,14 +67,14 @@ switch (command) {
 
   case 'stop': {
     const name = args[1];
-    if (!name) { console.error('Usage: gabbo stop <name|id>'); process.exit(1); }
+    if (!name) { console.error('Usage: flout stop <name|id>'); process.exit(1); }
     sessions.stop(name);
     break;
   }
 
   case 'join': {
     const name = args[1];
-    if (!name) { console.error('Usage: gabbo join <name|id>'); process.exit(1); }
+    if (!name) { console.error('Usage: flout join <name|id>'); process.exit(1); }
     sessions.join(name);
     break;
   }
@@ -89,7 +89,7 @@ switch (command) {
 
   case 'restart': {
     const name = args[1];
-    if (!name) { console.error('Usage: gabbo restart <name|id> [--path <dir>]'); process.exit(1); }
+    if (!name) { console.error('Usage: flout restart <name|id> [--path <dir>]'); process.exit(1); }
     const dir = getFlag('--path') || process.cwd();
     sessions.restart(name, dir, agent);
     break;

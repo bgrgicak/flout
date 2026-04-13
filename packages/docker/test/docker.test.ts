@@ -8,7 +8,7 @@ import * as docker from '../src/index.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function runCli(...args: string[]): { stdout: string; stderr: string; exitCode: number | null } {
-  const cli = path.resolve(__dirname, '..', '..', '..', 'gabbo', 'src', 'cli.ts');
+  const cli = path.resolve(__dirname, '..', '..', '..', 'flout', 'src', 'cli.ts');
   const result = spawnSync('npx', ['tsx', cli, ...args], {
     encoding: 'utf8',
     timeout: 10000,

@@ -1,12 +1,12 @@
 {
-  "name": "gabbo",
+  "name": "flout",
   "version": "0.1.1",
   "type": "module",
   "description": "Manage persistent AI agent sessions with tmux",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "bin": {
-    "gabbo": "./bin/gabbo.js"
+    "flout": "./bin/flout.js"
   },
   "files": [
     "dist/src",
@@ -21,10 +21,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/bgrgicak/gabbo.git",
-    "directory": "packages/gabbo"
+    "url": "https://github.com/bgrgicak/flout.git",
+    "directory": "packages/flout"
   },
-  "homepage": "https://github.com/bgrgicak/gabbo",
+  "homepage": "https://github.com/bgrgicak/flout",
   "author": "Bero",
   "keywords": [
     "tmux",
@@ -36,15 +36,15 @@
     "persistent"
   ],
   "dependencies": {
-    "@gabbo/claude": "*",
-    "@gabbo/docker": "*"
+    "@flout/claude": "*",
+    "@flout/docker": "*"
   },
   "engines": {
     "node": ">=20"
   },
   "license": "GPL-2.0-only",
   "devDependencies": {
-    "@gabbo/claude-mock-api": "*",
+    "@flout/claude-mock-api": "*",
     "tsx": "^4.21.0"
   }
 }

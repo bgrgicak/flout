@@ -1,29 +1,29 @@
-# Contributing to gabbo
+# Contributing to flout
 
 ## Monorepo structure
 
 ```
 packages/
-  gabbo/              Main CLI — session management, setup, types
+  flout/              Main CLI — session management, setup, types
     src/cli.ts        CLI entry point — parses args, dispatches commands
     src/sessions.ts   tmux session lifecycle (start, remote, stop, join, list, restart, status)
     src/setup.ts      setup and trust commands
     src/types.ts      Agent interface — exported for providers
-    bin/gabbo.js      Thin ESM shim for the compiled CLI
+    bin/flout.js      Thin ESM shim for the compiled CLI
     test/             CLI and session integration tests
 
-  claude/             @gabbo/claude — Claude Code provider
+  claude/             @flout/claude — Claude Code provider
     src/index.ts      Claude-specific commands, auth, and trust checking
 
-  docker/             @gabbo/docker — Docker runtime
+  docker/             @flout/docker — Docker runtime
     src/index.ts      Container lifecycle (start, stop, shell, status)
 ```
 
 ## Architecture
 
-gabbo is a TypeScript monorepo using npm workspaces. The core `gabbo` package is agent-agnostic — `sessions.ts` and `setup.ts` accept an `Agent` interface and never reference Claude directly.
+flout is a TypeScript monorepo using npm workspaces. The core `flout` package is agent-agnostic — `sessions.ts` and `setup.ts` accept an `Agent` interface and never reference Claude directly.
 
-The `Agent` interface is defined in `packages/gabbo/src/types.ts`:
+The `Agent` interface is defined in `packages/flout/src/types.ts`:
 
 ```ts
 interface Agent {
@@ -44,14 +44,14 @@ interface Agent {
 ## Adding a new agent
 
 1. Create a new package `packages/<name>/` with `src/index.ts` exporting an object satisfying `Agent`
-2. Add it as a workspace dependency in `packages/gabbo/package.json`
-3. Wire it up in `packages/gabbo/src/cli.ts`
+2. Add it as a workspace dependency in `packages/flout/package.json`
+3. Wire it up in `packages/flout/src/cli.ts`
 
 ## Adding a new runtime
 
 1. Create a new package `packages/<name>/` (like `packages/docker/`)
 2. Define a minimal interface for what you need from the agent (structural typing)
-3. Wire it up as a subcommand in `packages/gabbo/src/cli.ts`
+3. Wire it up as a subcommand in `packages/flout/src/cli.ts`
 
 ## Building
 

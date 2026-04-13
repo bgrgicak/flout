@@ -23,4 +23,4 @@ jobs:
       - name: Unit tests
         run: npm test
       - name: E2E tests (sessions)
-        run: npx tsx --test 'packages/gabbo/test/e2e/sessions.e2e.ts'
+        run: npx tsx --test 'packages/flout/test/e2e/sessions.e2e.ts'

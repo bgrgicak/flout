@@ -50,7 +50,7 @@ describe('sessions', () => {
   it('generates timestamped session IDs', () => {
     const id = sessions.start('myproject', '/tmp', bashAgent);
     createdSessions.push(id);
-    assert.match(id, /^gabbo-\d{4}-\d{6}-myproject$/);
+    assert.match(id, /^flout-\d{4}-\d{6}-myproject$/);
 
     const result = spawnSync('tmux', ['has-session', '-t', id]);
     assert.strictEqual(result.status, 0, 'session should exist');
@@ -122,7 +122,7 @@ describe('sessions', () => {
 
   it('refuses to start in a nonexistent directory', () => {
     const cli = path.join(pkgRoot, 'src', 'cli.ts');
-    const result = spawnSync('npx', ['tsx', cli, 'start', 'test', '--path', '/nonexistent-gabbo-test-dir'], {
+    const result = spawnSync('npx', ['tsx', cli, 'start', 'test', '--path', '/nonexistent-flout-test-dir'], {
       encoding: 'utf8',
       cwd: pkgRoot,
     });
@@ -134,7 +134,7 @@ describe('sessions', () => {
   it('sanitizes and lowercases labels', () => {
     const id = sessions.start('My_Project.Name', '/tmp', bashAgent);
     createdSessions.push(id);
-    assert.match(id, /^gabbo-\d{4}-\d{6}-my-project-name$/);
+    assert.match(id, /^flout-\d{4}-\d{6}-my-project-name$/);
 
     spawnSync('tmux', ['kill-session', '-t', id]);
   });

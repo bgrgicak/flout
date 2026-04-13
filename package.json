@@ -5,10 +5,10 @@
   ],
   "scripts": {
     "build": "tsc --build",
-    "cli": "tsx packages/gabbo/src/cli.ts",
-    "dev": "tsc --build && node packages/gabbo/bin/gabbo.js",
+    "cli": "tsx packages/flout/src/cli.ts",
+    "dev": "tsc --build && node packages/flout/bin/flout.js",
     "test": "tsc --build && npm test --workspaces",
-    "test:e2e": "tsc --build && npm run test:e2e --workspace=gabbo",
+    "test:e2e": "tsc --build && npm run test:e2e --workspace=flout",
     "clean": "tsc --build --clean",
     "publish-all": "npm run build && npm publish --workspaces"
   },
@@ -20,6 +20,6 @@
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.1"
   },
-  "name": "gabbo",
+  "name": "flout",
   "version": "0.1.1"
 }

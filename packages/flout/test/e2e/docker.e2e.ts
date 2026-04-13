@@ -4,7 +4,7 @@ import { spawnSync } from 'child_process';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { startMockServer, installMockCredentials, restoreCredentials } from '@gabbo/claude-mock-api';
+import { startMockServer, installMockCredentials, restoreCredentials } from '@flout/claude-mock-api';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const cli = path.resolve(__dirname, '..', '..', 'src', 'cli.ts');
@@ -20,7 +20,7 @@ function hasDocker(): boolean {
   return spawnSync('which', ['docker']).status === 0;
 }
 
-function gabbo(...args: string[]): { stdout: string; stderr: string; exitCode: number | null } {
+function flout(...args: string[]): { stdout: string; stderr: string; exitCode: number | null } {
   const result = spawnSync('npx', ['tsx', cli, ...args], {
     encoding: 'utf8',
     timeout: 300000,
@@ -34,7 +34,7 @@ function gabbo(...args: string[]): { stdout: string; stderr: string; exitCode: n
 }
 
 function extractContainerName(output: string): string | null {
-  const match = output.match(/Container '(gabbo-\d{4}-\d{6}-[a-z0-9-]+)'/);
+  const match = output.match(/Container '(flout-\d{4}-\d{6}-[a-z0-9-]+)'/);
   return match ? match[1] : null;
 }
 
@@ -58,12 +58,12 @@ describe('e2e: docker', { skip: !hasDocker() ? 'Docker not available' : undefine
   });
 
   it('starts a container', () => {
-    const result = gabbo('docker', 'start', '--name', 'e2e-docker-test');
+    const result = flout('docker', 'start', '--name', 'e2e-docker-test');
     assert.strictEqual(result.exitCode, 0, `stderr: ${result.stderr}`);
     const name = extractContainerName(result.stdout);
     assert.ok(name, `should output container name, got: ${result.stdout}`);
     createdContainers.push(name!);
-    assert.match(name!, /^gabbo-\d{4}-\d{6}-e2e-docker-test$/);
+    assert.match(name!, /^flout-\d{4}-\d{6}-e2e-docker-test$/);
 
     const check = spawnSync('docker', ['container', 'inspect', '--format', '{{.State.Running}}', name!], { encoding: 'utf8' });
     assert.strictEqual(check.stdout.trim(), 'true', 'container should be running');
@@ -72,7 +72,7 @@ describe('e2e: docker', { skip: !hasDocker() ? 'Docker not available' : undefine
   it('starts a second container with the same label', () => {
     spawnSync('sleep', ['1']);
 
-    const result = gabbo('docker', 'start', '--name', 'e2e-docker-test');
+    const result = flout('docker', 'start', '--name', 'e2e-docker-test');
     assert.strictEqual(result.exitCode, 0, `stderr: ${result.stderr}`);
     const name = extractContainerName(result.stdout);
     assert.ok(name);
@@ -82,7 +82,7 @@ describe('e2e: docker', { skip: !hasDocker() ? 'Docker not available' : undefine
   });
 
   it('shows both containers in status', () => {
-    const result = gabbo('docker', 'status');
+    const result = flout('docker', 'status');
     assert.strictEqual(result.exitCode, 0);
     for (const c of createdContainers) {
       assert.ok(result.stdout.includes(c), `status should list ${c}`);
@@ -90,7 +90,7 @@ describe('e2e: docker', { skip: !hasDocker() ? 'Docker not available' : undefine
   });
 
   it('disambiguates when multiple containers match', () => {
-    const result = gabbo('docker', 'stop', 'e2e-docker-test');
+    const result = flout('docker', 'stop', 'e2e-docker-test');
     assert.strictEqual(result.exitCode, 1);
     const output = result.stdout + result.stderr;
     assert.ok(output.includes('Multiple containers'), 'should show disambiguation');
@@ -98,14 +98,14 @@ describe('e2e: docker', { skip: !hasDocker() ? 'Docker not available' : undefine
 
   it('stops a container by full name', () => {
     const name = createdContainers[0];
-    const result = gabbo('docker', 'stop', name);
+    const result = flout('docker', 'stop', name);
     assert.strictEqual(result.exitCode, 0);
     assert.ok(result.stdout.includes('stopped'));
   });
 
   it('shell exits 1 for stopped container', () => {
     const name = createdContainers[0];
-    const result = gabbo('docker', 'shell', name);
+    const result = flout('docker', 'shell', name);
     assert.strictEqual(result.exitCode, 1);
     const output = result.stdout + result.stderr;
     assert.ok(output.includes('not running'));
@@ -120,7 +120,7 @@ describe('e2e: docker', { skip: !hasDocker() ? 'Docker not available' : undefine
 
   it('stops the remaining container', () => {
     const name = createdContainers[1];
-    const result = gabbo('docker', 'stop', name);
+    const result = flout('docker', 'stop', name);
     assert.strictEqual(result.exitCode, 0);
   });
 });

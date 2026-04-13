@@ -18,17 +18,17 @@ function sanitizeLabel(label: string): string {
 }
 
 function generateSessionId(label: string): string {
-  return `gabbo-${timestamp()}-${sanitizeLabel(label)}`;
+  return `flout-${timestamp()}-${sanitizeLabel(label)}`;
 }
 
-function listGabboSessions(): string[] {
+function listFloutSessions(): string[] {
   const result = spawnSync('tmux', ['list-sessions', '-F', '#{session_name}'], { encoding: 'utf8' });
   if (result.status !== 0) return [];
-  return result.stdout.trim().split('\n').filter(s => s.startsWith('gabbo-'));
+  return result.stdout.trim().split('\n').filter(s => s.startsWith('flout-'));
 }
 
 export function resolveSession(query: string): string {
-  const sessions = listGabboSessions();
+  const sessions = listFloutSessions();
   const q = sanitizeLabel(query);
 
   const exact = sessions.find(s => s === q);
@@ -60,7 +60,7 @@ export function start(label: string, dir: string, agent: Agent): string {
   }
   if (!agent.isTrusted(resolved)) {
     console.error(`Directory '${resolved}' is not trusted.`);
-    console.error(`Run: gabbo trust ${resolved}`);
+    console.error(`Run: flout trust ${resolved}`);
     process.exit(1);
   }
   const session = generateSessionId(label);
@@ -84,7 +84,7 @@ export function remote(label: string, dir: string, agent: Agent): string {
   }
   if (!agent.isTrusted(resolved)) {
     console.error(`Directory '${resolved}' is not trusted.`);
-    console.error(`Run: gabbo trust ${resolved}`);
+    console.error(`Run: flout trust ${resolved}`);
     process.exit(1);
   }
   const session = generateSessionId(label);
@@ -117,7 +117,7 @@ export function join(query: string): void {
 }
 
 export function list(): void {
-  const sessions = listGabboSessions();
+  const sessions = listFloutSessions();
   if (sessions.length === 0) {
     console.log('No active sessions.');
     return;
@@ -132,14 +132,14 @@ export function list(): void {
 export function restart(query: string, dir: string, agent: Agent): string {
   const session = resolveSession(query);
   spawnSync('tmux', ['kill-session', '-t', session]);
-  const label = session.replace(/^gabbo-\d{4}-\d{6}-/, '');
+  const label = session.replace(/^flout-\d{4}-\d{6}-/, '');
   return remote(label, dir, agent);
 }
 
 export function status(agent: Agent): void {
   if (!agent.isAuthenticated()) {
     console.log('Not logged in. Run: claude auth login');
-    console.log('Then: gabbo remote claude');
+    console.log('Then: flout remote claude');
     return;
   }
   list();

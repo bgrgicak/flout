@@ -25,7 +25,7 @@ describe('CLI', () => {
   it('prints usage with --help', () => {
     const { stdout, exitCode } = run('--help');
     assert.strictEqual(exitCode, 0);
-    assert.ok(stdout.includes('gabbo'));
+    assert.ok(stdout.includes('flout'));
     assert.ok(stdout.includes('setup'));
     assert.ok(stdout.includes('start'));
     assert.ok(stdout.includes('remote'));
@@ -39,7 +39,7 @@ describe('CLI', () => {
   it('prints usage with no args and exits 0', () => {
     const { stdout, exitCode } = run();
     assert.strictEqual(exitCode, 0);
-    assert.ok(stdout.includes('gabbo'));
+    assert.ok(stdout.includes('flout'));
   });
 
   it('exits 1 for unknown command', () => {
@@ -66,7 +66,7 @@ describe('CLI', () => {
   it('prints docker usage with no docker subcommand', () => {
     const { stdout, exitCode } = run('docker');
     assert.strictEqual(exitCode, 0);
-    assert.ok(stdout.includes('gabbo docker'));
+    assert.ok(stdout.includes('flout docker'));
   });
 
   it('exits 1 for unknown docker subcommand', () => {

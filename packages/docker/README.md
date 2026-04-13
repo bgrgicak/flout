@@ -1,13 +1,13 @@
-# @gabbo/docker
+# @flout/docker
 
-Docker runtime for [gabbo](../gabbo/). Manages container lifecycle — build images, start/stop containers, and exec into them.
+Docker runtime for [flout](../flout/). Manages container lifecycle — build images, start/stop containers, and exec into them.
 
 ## Usage
 
-This package is a dependency of the main `gabbo` CLI. You don't need to install it directly.
+This package is a dependency of the main `flout` CLI. You don't need to install it directly.
 
 ```ts
-import * as docker from '@gabbo/docker';
+import * as docker from '@flout/docker';
 
 docker.start({ name: 'myproject', cwd: '/path/to/project', extraArgs: [], agent });
 docker.stop({ name: 'myproject' });
@@ -24,19 +24,19 @@ docker.status();
 | `stop({ name })` | Stop a running container (resolves by label or full ID) |
 | `shell({ name })` | Exec into a container, landing in the project directory |
 | `claude({ name })` | Exec into a container and launch Claude directly |
-| `status()` | List all gabbo containers and their state |
+| `status()` | List all flout containers and their state |
 | `resolveContainer(query)` | Find a container by label or full name, with disambiguation |
 
 ## Multiple containers
 
-Each `docker start` creates a new container with a timestamped name (e.g. `gabbo-0410-152301-myproject`). You can run multiple containers for the same project directory.
+Each `docker start` creates a new container with a timestamped name (e.g. `flout-0410-152301-myproject`). You can run multiple containers for the same project directory.
 
 When a label matches multiple containers, `stop`, `shell`, and `claude` list the matches so you can use the full container name.
 
 ## Container conventions
 
-- **Image**: `gabbo` (built from an embedded Dockerfile on first run)
-- **Container name**: `gabbo-<MMdd-HHmmss>-<label>` (label defaults to project directory basename)
+- **Image**: `flout` (built from an embedded Dockerfile on first run)
+- **Container name**: `flout-<MMdd-HHmmss>-<label>` (label defaults to project directory basename)
 - **Mount**: host project dir to `/home/dev/<basename>`
 - **Auth**: mounts `~/.claude` for credential persistence
 - **Git**: passes through `user.name` and `user.email` as env vars

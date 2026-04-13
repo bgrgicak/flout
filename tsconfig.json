@@ -4,6 +4,6 @@
     { "path": "packages/claude" },
     { "path": "packages/docker" },
     { "path": "packages/claude-mock-api" },
-    { "path": "packages/gabbo" }
+    { "path": "packages/flout" }
   ]
 }

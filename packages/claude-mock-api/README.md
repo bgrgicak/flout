@@ -1,11 +1,11 @@
-# @gabbo/claude-mock-api
+# @flout/claude-mock-api
 
 Mock Claude Code API server for testing CLI tools that integrate with Claude. Provides a fake credentials file and a minimal HTTP server that responds to Claude's API endpoints.
 
 ## Install
 
 ```bash
-npm install --save-dev @gabbo/claude-mock-api
+npm install --save-dev @flout/claude-mock-api
 ```
 
 ## Usage
@@ -16,7 +16,7 @@ import {
   installMockCredentials,
   restoreCredentials,
   MOCK_CREDENTIALS,
-} from '@gabbo/claude-mock-api';
+} from '@flout/claude-mock-api';
 
 // Start a mock API server on a random port
 const { server, port } = await startMockServer();

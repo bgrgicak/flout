@@ -12,21 +12,21 @@ RUN useradd -m -s /bin/bash dev \
 USER dev
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
-# Install gabbo from source
-COPY --chown=dev:dev package.json package-lock.json tsconfig.json tsconfig.base.json /tmp/gabbo/
-COPY --chown=dev:dev packages /tmp/gabbo/packages
+# Install flout from source
+COPY --chown=dev:dev package.json package-lock.json tsconfig.json tsconfig.base.json /tmp/flout/
+COPY --chown=dev:dev packages /tmp/flout/packages
 USER root
-RUN cd /tmp/gabbo && npm ci && npm run build \
-    && cd packages/claude && npm pack && mv gabbo-claude-*.tgz /tmp/ && cd .. \
-    && cd docker && npm pack && mv gabbo-docker-*.tgz /tmp/ && cd .. \
-    && cd gabbo && npm pack && mv gabbo-*.tgz /tmp/ && cd .. \
-    && npm install -g /tmp/gabbo-claude-*.tgz /tmp/gabbo-docker-*.tgz /tmp/gabbo-*.tgz \
-    && rm -rf /tmp/gabbo /tmp/gabbo-*.tgz
+RUN cd /tmp/flout && npm ci && npm run build \
+    && cd packages/claude && npm pack && mv flout-claude-*.tgz /tmp/ && cd .. \
+    && cd docker && npm pack && mv flout-docker-*.tgz /tmp/ && cd .. \
+    && cd flout && npm pack && mv flout-*.tgz /tmp/ && cd .. \
+    && npm install -g /tmp/flout-claude-*.tgz /tmp/flout-docker-*.tgz /tmp/flout-*.tgz \
+    && rm -rf /tmp/flout /tmp/flout-*.tgz
 USER dev
 
 WORKDIR /home/dev
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/dev/.bashrc \
-    && echo 'echo ""; gabbo status; echo ""' >> /home/dev/.bashrc
+    && echo 'echo ""; flout status; echo ""' >> /home/dev/.bashrc
 
 ENV PATH="/home/dev/.local/bin:${PATH}"
 CMD ["sleep", "infinity"]

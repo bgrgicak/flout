@@ -7,8 +7,8 @@ export interface DockerAgent {
   encodePath(dir: string): string;
 }
 
-const IMAGE_NAME = 'gabbo';
-const CONTAINER_PREFIX = 'gabbo-';
+const IMAGE_NAME = 'flout';
+const CONTAINER_PREFIX = 'flout-';
 
 const EMBEDDED_DOCKERFILE = `FROM node:20-slim
 
@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \\
     bash curl git tmux \\
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g gabbo
+RUN npm install -g flout
 
 RUN useradd -m -s /bin/bash dev
 
@@ -25,7 +25,7 @@ RUN curl -fsSL https://claude.ai/install.sh | bash
 
 WORKDIR /home/dev
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/dev/.bashrc \\
-    && echo 'echo ""; gabbo status; echo ""' >> /home/dev/.bashrc
+    && echo 'echo ""; flout status; echo ""' >> /home/dev/.bashrc
 
 ENV PATH="/home/dev/.local/bin:\${PATH}"
 CMD ["sleep", "infinity"]
@@ -46,7 +46,7 @@ function sanitizeLabel(label: string): string {
 }
 
 function generateContainerName(label: string): string {
-  return `gabbo-${timestamp()}-${sanitizeLabel(label)}`;
+  return `flout-${timestamp()}-${sanitizeLabel(label)}`;
 }
 
 function imageExists(): boolean {
@@ -68,8 +68,8 @@ function checkDocker(): void {
 }
 
 function buildImage(): void {
-  console.log('Building gabbo image...');
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gabbo-'));
+  console.log('Building flout image...');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'flout-'));
   fs.writeFileSync(path.join(tmpDir, 'Dockerfile'), EMBEDDED_DOCKERFILE);
   try {
     execFileSync('docker', ['build', '-t', IMAGE_NAME, tmpDir], { stdio: 'inherit' });
@@ -78,14 +78,14 @@ function buildImage(): void {
   }
 }
 
-function listGabboContainers(): string[] {
+function listFloutContainers(): string[] {
   const result = spawnSync('docker', ['ps', '-a', '--filter', `name=${CONTAINER_PREFIX}`, '--format', '{{.Names}}'], { encoding: 'utf8' });
   if (result.status !== 0 || !result.stdout.trim()) return [];
   return result.stdout.trim().split('\n');
 }
 
 export function resolveContainer(query: string): string {
-  const containers = listGabboContainers();
+  const containers = listFloutContainers();
   const q = sanitizeLabel(query);
 
   const exact = containers.find(c => c === q);
@@ -214,9 +214,9 @@ export function claude({ name }: DockerClaudeOptions): void {
 
 export function status(): void {
   checkDocker();
-  const containers = listGabboContainers();
+  const containers = listFloutContainers();
   if (containers.length === 0) {
-    console.log('No gabbo containers found.');
+    console.log('No flout containers found.');
     return;
   }
   const result = spawnSync('docker', ['ps', '-a', '--filter', `name=${CONTAINER_PREFIX}`, '--format', 'table {{.Names}}\t{{.Status}}'], { encoding: 'utf8' });
@@ -226,12 +226,12 @@ export function status(): void {
 }
 
 export function usage(): void {
-  console.log(`gabbo docker — manage Docker containers
+  console.log(`flout docker — manage Docker containers
 
 Usage:
-  gabbo docker start [--name <n>] [-- <docker args>]  Build image & start container
-  gabbo docker stop [<name|id>]                        Stop a container
-  gabbo docker shell [<name|id>]                       Exec into a container
-  gabbo docker claude [<name|id>]                      Exec into a container running Claude
-  gabbo docker status                                  List gabbo containers`);
+  flout docker start [--name <n>] [-- <docker args>]  Build image & start container
+  flout docker stop [<name|id>]                        Stop a container
+  flout docker shell [<name|id>]                       Exec into a container
+  flout docker claude [<name|id>]                      Exec into a container running Claude
+  flout docker status                                  List flout containers`);
 }

@@ -1,13 +1,13 @@
-# @gabbo/claude
+# @flout/claude
 
-Claude Code provider for [gabbo](../gabbo/). Implements the `Agent` interface with Claude-specific commands for authentication, trust, and remote-control sessions.
+Claude Code provider for [flout](../flout/). Implements the `Agent` interface with Claude-specific commands for authentication, trust, and remote-control sessions.
 
 ## Usage
 
-This package is a dependency of the main `gabbo` CLI. You don't need to install it directly.
+This package is a dependency of the main `flout` CLI. You don't need to install it directly.
 
 ```ts
-import claude from '@gabbo/claude';
+import claude from '@flout/claude';
 
 claude.isAuthenticated();        // check login status
 claude.remoteCommand('my-agent'); // get the remote-control command string
