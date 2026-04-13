@@ -8,6 +8,7 @@
   "include": ["src/**/*.ts", "test/**/*.ts"],
   "references": [
     { "path": "../claude" },
-    { "path": "../docker" }
+    { "path": "../docker" },
+    { "path": "../claude-mock-api" }
   ]
 }

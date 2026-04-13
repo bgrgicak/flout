@@ -16,6 +16,7 @@
     "build": "tsc --build",
     "dev": "tsx src/cli.ts",
     "test": "tsx --test 'test/*.test.ts'",
+    "test:e2e": "tsx --test 'test/e2e/*.e2e.ts'",
     "prepublishOnly": "npm run build"
   },
   "repository": {
@@ -43,6 +44,7 @@
   },
   "license": "GPL-2.0-only",
   "devDependencies": {
+    "@gabbo/claude-mock-api": "*",
     "tsx": "^4.21.0"
   }
 }

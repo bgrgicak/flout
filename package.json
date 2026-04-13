@@ -9,6 +9,7 @@
     "cli": "tsx packages/gabbo/src/cli.ts",
     "dev": "tsc --build && node packages/gabbo/bin/gabbo.js",
     "test": "tsc --build && npm test --workspaces",
+    "test:e2e": "tsc --build && npm run test:e2e --workspace=gabbo",
     "clean": "tsc --build --clean",
     "publish-all": "npm run build && npm publish --workspaces"
   },

@@ -20,7 +20,7 @@ jobs:
       - run: npm ci
       - run: npx tsc --build
       - run: npx eslint .
-      - name: Test gabbo (CLI + sessions)
-        run: npx tsx --test 'packages/gabbo/test/cli.test.ts'
-      - name: Test docker (unit)
-        run: npx tsx --test 'packages/docker/test/docker.test.ts'
+      - name: Unit tests
+        run: npm test
+      - name: E2E tests (sessions)
+        run: npx tsx --test 'packages/gabbo/test/e2e/sessions.e2e.ts'
