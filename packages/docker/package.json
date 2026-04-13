@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "build": "tsc --build",
-    "test": "node --test 'dist/test/*.test.js'",
+    "test": "node --test dist/test/*.test.js",
     "prepublishOnly": "npm run build"
   },
   "repository": {

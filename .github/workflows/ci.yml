@@ -19,8 +19,6 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - run: npm ci
       - run: npx tsc --build
-      - name: Verify build output
-        run: ls -R packages/*/dist/test/ || true
       - run: npx eslint .
       - name: Unit tests
         run: npm test
