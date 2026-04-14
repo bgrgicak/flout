@@ -7,28 +7,37 @@ export interface DockerAgent {
   encodePath(dir: string): string;
 }
 
-const IMAGE_NAME = 'flout';
+const BASE_IMAGE_NAME = 'flout';
+const IMAGE_NAME = 'flout-claude';
 const CONTAINER_PREFIX = 'flout-';
 
-const EMBEDDED_DOCKERFILE = `FROM node:20-slim
+const EMBEDDED_BASE_DOCKERFILE = `FROM node:20-slim
 
 RUN apt-get update && apt-get install -y \\
-    bash curl git tmux \\
+    bash curl git sudo tmux \\
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g flout
+RUN useradd -m -s /bin/bash dev \\
+    && adduser dev sudo \\
+    && echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-RUN useradd -m -s /bin/bash dev
+RUN npm install -g @flout/cli @flout/claude @flout/docker
+
+USER dev
+WORKDIR /home/dev
+RUN echo 'echo ""; flout status; echo ""' >> /home/dev/.bashrc
+
+CMD ["sleep", "infinity"]
+`;
+
+const EMBEDDED_CLAUDE_DOCKERFILE = `FROM ${BASE_IMAGE_NAME}
 
 USER dev
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
-WORKDIR /home/dev
-RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/dev/.bashrc \\
-    && echo 'echo ""; flout status; echo ""' >> /home/dev/.bashrc
+RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/dev/.bashrc
 
 ENV PATH="/home/dev/.local/bin:\${PATH}"
-CMD ["sleep", "infinity"]
 `;
 
 function timestamp(): string {
@@ -49,8 +58,8 @@ function generateContainerName(label: string): string {
   return `flout-${timestamp()}-${sanitizeLabel(label)}`;
 }
 
-function imageExists(): boolean {
-  const result = spawnSync('docker', ['image', 'inspect', IMAGE_NAME], { stdio: 'ignore' });
+function imageExists(name: string): boolean {
+  const result = spawnSync('docker', ['image', 'inspect', name], { stdio: 'ignore' });
   return result.status === 0;
 }
 
@@ -68,10 +77,15 @@ function checkDocker(): void {
 }
 
 function buildImage(): void {
-  console.log('Building flout image...');
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'flout-'));
-  fs.writeFileSync(path.join(tmpDir, 'Dockerfile'), EMBEDDED_DOCKERFILE);
   try {
+    if (!imageExists(BASE_IMAGE_NAME)) {
+      console.log('Building flout base image...');
+      fs.writeFileSync(path.join(tmpDir, 'Dockerfile'), EMBEDDED_BASE_DOCKERFILE);
+      execFileSync('docker', ['build', '-t', BASE_IMAGE_NAME, tmpDir], { stdio: 'inherit' });
+    }
+    console.log('Building flout-claude image...');
+    fs.writeFileSync(path.join(tmpDir, 'Dockerfile'), EMBEDDED_CLAUDE_DOCKERFILE);
     execFileSync('docker', ['build', '-t', IMAGE_NAME, tmpDir], { stdio: 'inherit' });
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -119,7 +133,7 @@ export interface DockerStartOptions {
 export function start({ name, cwd, extraArgs, agent }: DockerStartOptions): string {
   checkDocker();
 
-  if (!imageExists()) {
+  if (!imageExists(IMAGE_NAME)) {
     buildImage();
   }
 
@@ -162,11 +176,11 @@ export interface DockerStopOptions {
 export function stop({ name }: DockerStopOptions): void {
   checkDocker();
   const full = resolveContainer(name);
-  const result = spawnSync('docker', ['stop', full], { stdio: 'inherit' });
+  const result = spawnSync('docker', ['rm', '-f', full], { stdio: 'inherit' });
   if (result.status === 0) {
-    console.log(`Container '${full}' stopped.`);
+    console.log(`Container '${full}' removed.`);
   } else {
-    console.error(`Failed to stop container '${full}'.`);
+    console.error(`Failed to remove container '${full}'.`);
     process.exit(1);
   }
 }

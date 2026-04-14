@@ -10,7 +10,8 @@
     "test": "tsc --build && npm test --workspaces",
     "test:e2e": "tsc --build && npm run test:e2e --workspace=@flout/cli",
     "clean": "tsc --build --clean",
-    "publish-all": "npm run build && npm publish --workspaces"
+    "publish-all": "npm run build && npm publish --workspaces",
+    "publish-docker": "./packages/docker/publish.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
