@@ -1,6 +1,6 @@
 # @flout/claude
 
-Claude Code provider for [flout](../flout/). Implements the `Agent` interface with Claude-specific commands for authentication, trust, and remote-control sessions.
+Claude Code provider for [@flout/cli](../cli/). Implements the `Agent` interface with Claude-specific commands for authentication, trust, and remote-control sessions.
 
 ## Usage
 

@@ -7,7 +7,7 @@ Currently supports Claude Code. Extensible to other agents.
 ## Install
 
 ```bash
-npm install -g flout
+npm install -g @flout/cli
 ```
 
 Requires: Node.js 18+, tmux.
@@ -81,7 +81,7 @@ flout wraps tmux and your agent's CLI. `flout remote` starts a tmux session runn
 
 | Package | Description |
 |---------|-------------|
-| [`flout`](.) | Main CLI — session management, setup, types |
+| [`@flout/cli`](.) | Main CLI — session management, setup, types |
 | [`@flout/claude`](../claude/) | Claude Code agent provider |
 | [`@flout/docker`](../docker/) | Docker container runtime |
 

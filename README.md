@@ -5,7 +5,7 @@ Manage persistent AI agent sessions with tmux. Start, stop, join, and restart lo
 ## Install
 
 ```bash
-npm install -g flout
+npm install -g @flout/cli
 ```
 
 Requires Node.js 18+ and tmux.

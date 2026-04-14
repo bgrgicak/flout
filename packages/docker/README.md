@@ -1,6 +1,6 @@
 # @flout/docker
 
-Docker runtime for [flout](../flout/). Manages container lifecycle — build images, start/stop containers, and exec into them.
+Docker runtime for [@flout/cli](../cli/). Manages container lifecycle — build images, start/stop containers, and exec into them.
 
 ## Usage
 
