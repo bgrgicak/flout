@@ -1,6 +1,6 @@
 {
   "name": "@flout/claude",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "description": "Claude agent adapter for flout",
   "main": "dist/src/index.js",
