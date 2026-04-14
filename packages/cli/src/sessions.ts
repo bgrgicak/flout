@@ -138,8 +138,8 @@ export function restart(query: string, dir: string, agent: Agent): string {
 
 export function status(agent: Agent): void {
   if (!agent.isAuthenticated()) {
-    console.log('Not logged in. Run: claude auth login');
-    console.log('Then: flout remote claude');
+    console.log('Not logged in. Run: claude');
+    console.log('Go through the setup process, then run: flout remote claude');
     return;
   }
   list();
