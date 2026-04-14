@@ -88,7 +88,7 @@ export function remote(label: string, dir: string, agent: Agent): string {
     process.exit(1);
   }
   const session = generateSessionId(label);
-  const cmd = `while true; do ${agent.remoteCommand(session)}; echo "Connection dropped. Restarting in 5s..."; sleep 5; done`;
+  const cmd = `while true; do ${agent.remoteCommand(label)}; echo "Connection dropped. Restarting in 5s..."; sleep 5; done`;
   execFileSync('tmux', [
     'new-session', '-d', '-s', session, '-c', resolved, cmd,
   ]);
