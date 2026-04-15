@@ -3,12 +3,13 @@ set -euo pipefail
 
 # Publish the flout Docker images to Docker Hub
 #
-# Builds and pushes two images:
+# Builds and pushes multi-platform images (linux/amd64, linux/arm64):
 #   bgrgicak/flout        — base image
 #   bgrgicak/flout-claude — base + Claude Code
 #
 # Prerequisites:
 #   docker login
+#   docker buildx (included with Docker Desktop; on Linux: docker buildx create --use)
 #
 # Usage:
 #   ./publish.sh                  # builds and pushes with version from package.json + latest
@@ -20,6 +21,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 BASE_REPO="bgrgicak/flout"
 CLAUDE_REPO="bgrgicak/flout-claude"
+PLATFORMS="linux/amd64,linux/arm64"
 
 # Determine version
 if [[ -n "${1:-}" && "$1" != --* ]]; then
@@ -37,38 +39,42 @@ for arg in "$@"; do
   fi
 done
 
-# Build base image
-echo "Building ${BASE_REPO}:${VERSION}..."
-docker build -t "${BASE_REPO}:${VERSION}" -f "$SCRIPT_DIR/Dockerfile" "$REPO_ROOT"
-
-if $TAG_LATEST; then
-  docker tag "${BASE_REPO}:${VERSION}" "${BASE_REPO}:latest"
+# Ensure a buildx builder exists
+if ! docker buildx inspect flout-builder &>/dev/null; then
+  echo "Creating buildx builder 'flout-builder'..."
+  docker buildx create --name flout-builder --use
+else
+  docker buildx use flout-builder
 fi
 
-# Build claude image on top of base
-echo "Building ${CLAUDE_REPO}:${VERSION}..."
-docker build -t "${CLAUDE_REPO}:${VERSION}" --build-arg "BASE_IMAGE=${BASE_REPO}:${VERSION}" -f "$SCRIPT_DIR/Dockerfile.claude" "$REPO_ROOT"
-
+# Build and push base image
+TAGS=("-t" "${BASE_REPO}:${VERSION}")
 if $TAG_LATEST; then
-  docker tag "${CLAUDE_REPO}:${VERSION}" "${CLAUDE_REPO}:latest"
+  TAGS+=("-t" "${BASE_REPO}:latest")
 fi
 
-# Push base
-echo "Pushing ${BASE_REPO}:${VERSION}..."
-docker push "${BASE_REPO}:${VERSION}"
+echo "Building and pushing ${BASE_REPO}:${VERSION} for ${PLATFORMS}..."
+docker buildx build \
+  --platform "$PLATFORMS" \
+  "${TAGS[@]}" \
+  -f "$SCRIPT_DIR/Dockerfile" \
+  --push \
+  "$REPO_ROOT"
 
+# Build and push claude image on top of base
+# Use the version tag as the base so the digest is resolved per-platform
+TAGS=("-t" "${CLAUDE_REPO}:${VERSION}")
 if $TAG_LATEST; then
-  echo "Pushing ${BASE_REPO}:latest..."
-  docker push "${BASE_REPO}:latest"
+  TAGS+=("-t" "${CLAUDE_REPO}:latest")
 fi
 
-# Push claude
-echo "Pushing ${CLAUDE_REPO}:${VERSION}..."
-docker push "${CLAUDE_REPO}:${VERSION}"
+echo "Building and pushing ${CLAUDE_REPO}:${VERSION} for ${PLATFORMS}..."
+docker buildx build \
+  --platform "$PLATFORMS" \
+  "${TAGS[@]}" \
+  --build-arg "BASE_IMAGE=${BASE_REPO}:${VERSION}" \
+  -f "$SCRIPT_DIR/Dockerfile.claude" \
+  --push \
+  "$REPO_ROOT"
 
-if $TAG_LATEST; then
-  echo "Pushing ${CLAUDE_REPO}:latest..."
-  docker push "${CLAUDE_REPO}:latest"
-fi
-
-echo "Done. Published ${BASE_REPO}:${VERSION} and ${CLAUDE_REPO}:${VERSION}"
+echo "Done. Published ${BASE_REPO}:${VERSION} and ${CLAUDE_REPO}:${VERSION} for ${PLATFORMS}"
