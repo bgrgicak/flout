@@ -2,7 +2,7 @@ ARG BASE_IMAGE=flout
 FROM ${BASE_IMAGE}
 
 USER dev
-RUN curl -fsSL https://claude.ai/install.sh | bash
+RUN curl -fsSL claude.ai/install.sh | bash -s 2.1.101
 
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/dev/.bashrc
 
