@@ -7,3 +7,9 @@ RUN curl -fsSL claude.ai/install.sh | bash -s 2.1.101
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/dev/.bashrc
 
 ENV PATH="/home/dev/.local/bin:${PATH}"
+
+# Create a dedicated working directory for the agent.
+# Claude doesn't trust ~ as a workspace even after marking it trusted:
+# https://github.com/anthropics/claude-code/issues/13288
+RUN mkdir -p /home/dev/agent
+WORKDIR /home/dev/agent
