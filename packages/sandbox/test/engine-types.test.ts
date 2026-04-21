@@ -87,7 +87,9 @@ describe('engine type: nerdctl (containerd)', () => {
   it('detects nerdctl when available', { skip: !hasNerdctl ? 'nerdctl not installed' : undefined }, () => {
     const engine = detectEngine('nerdctl');
     assert.strictEqual(engine.type, 'nerdctl');
-    assert.strictEqual(engine.binary, 'nerdctl');
+    // Binary is 'colima' when Colima provides containerd, 'nerdctl' standalone
+    assert.ok(engine.binary === 'nerdctl' || engine.binary === 'colima',
+      `expected nerdctl or colima binary, got '${engine.binary}'`);
   });
 
   it('nerdctl binary supports expected commands', { skip: !hasNerdctl ? 'nerdctl not installed' : undefined }, () => {

@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { detectEngine } from './engine.js';
+import { isColimaRunning } from './colima.js';
 import type { Engine, EngineType } from './engine.js';
 
 export type { Engine, EngineType, EngineInput } from './engine.js';
@@ -14,11 +15,10 @@ export interface SandboxAgent {
   encodePath(dir: string): string;
 }
 
-const BASE_IMAGE_NAME = 'flout';
 const IMAGE_NAME = 'flout-claude';
 const CONTAINER_PREFIX = 'flout-';
 
-const EMBEDDED_BASE_DOCKERFILE = `FROM node:20-slim
+const EMBEDDED_DOCKERFILE = `FROM node:20-slim
 
 RUN apt-get update && apt-get install -y \\
     bash curl git sudo tmux \\
@@ -28,23 +28,17 @@ RUN useradd -m -s /bin/bash dev \\
     && adduser dev sudo \\
     && echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-RUN npm install -g @flout/cli @flout/claude @flout/sandbox
+RUN npm install -g @flout/cli @flout/claude
 
 USER dev
 WORKDIR /home/dev
 RUN echo 'echo ""; flout status; echo ""' >> /home/dev/.bashrc
 
-CMD ["sleep", "infinity"]
-`;
-
-const EMBEDDED_CLAUDE_DOCKERFILE = `FROM ${BASE_IMAGE_NAME}
-
-USER dev
 RUN curl -fsSL https://claude.ai/install.sh | bash
-
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> /home/dev/.bashrc
-
 ENV PATH="/home/dev/.local/bin:\${PATH}"
+
+CMD ["sleep", "infinity"]
 `;
 
 function timestamp(): string {
@@ -74,6 +68,7 @@ function engineArgs(engine: Engine, args: string[]): string[] {
   return [...engine.prefix, ...args];
 }
 
+
 function imageExists(engine: Engine, name: string): boolean {
   const result = spawnSync(engine.binary, engineArgs(engine, ['image', 'inspect', name]), { stdio: 'ignore' });
   return result.status === 0;
@@ -99,8 +94,9 @@ function buildTmpDir(engine: Engine): string {
 }
 
 function checkBuildSupport(engine: Engine): void {
+  // Colima bundles buildkit inside the VM — no host-side check needed.
+  // Only standalone nerdctl (not via Colima) needs buildkit on the host.
   if (engine.type === 'nerdctl' && !engine.viaColima) {
-    // Standalone nerdctl needs buildkit for image builds
     const buildctl = spawnSync('which', ['buildctl'], { stdio: 'ignore' });
     if (buildctl.status !== 0) {
       console.error('nerdctl build requires buildkit (buildctl + buildkitd).');
@@ -115,14 +111,15 @@ function buildImage(engine: Engine): void {
   checkBuildSupport(engine);
   const tmpDir = buildTmpDir(engine);
   try {
-    if (!imageExists(engine, BASE_IMAGE_NAME)) {
-      console.log(`Building flout base image with ${engine.binary}...`);
-      fs.writeFileSync(path.join(tmpDir, 'Dockerfile'), EMBEDDED_BASE_DOCKERFILE);
-      execFileSync(engine.binary, engineArgs(engine, ['build', '-t', BASE_IMAGE_NAME, tmpDir]), { stdio: 'inherit' });
-    }
-    console.log(`Building flout-claude image with ${engine.binary}...`);
-    fs.writeFileSync(path.join(tmpDir, 'Dockerfile'), EMBEDDED_CLAUDE_DOCKERFILE);
+    console.log(`Building flout-claude image with ${engine.type}...`);
+    fs.writeFileSync(path.join(tmpDir, 'Dockerfile'), EMBEDDED_DOCKERFILE);
     execFileSync(engine.binary, engineArgs(engine, ['build', '-t', IMAGE_NAME, tmpDir]), { stdio: 'inherit' });
+  } catch {
+    if (engine.viaColima && !isColimaRunning()) {
+      console.error('Colima VM is not running. It may have crashed or been stopped.');
+      console.error('Restart it with: colima start');
+    }
+    process.exit(1);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -168,8 +165,22 @@ export interface SandboxStartOptions {
   engine?: EngineType;
 }
 
+function validateMountPath(engine: Engine, hostPath: string): void {
+  if (!engine.viaColima) return;
+  const home = os.homedir();
+  const resolved = path.resolve(hostPath);
+  if (!resolved.startsWith(home + '/') && resolved !== home) {
+    console.error(`Error: '${resolved}' is outside your home directory.`);
+    console.error(`Colima can only mount paths under ${home}.`);
+    console.error('Move your project under ~ or use a native engine (--engine docker).');
+    process.exit(1);
+  }
+}
+
 export function start({ name, cwd, extraArgs, agent, engine: preferredEngine }: SandboxStartOptions): string {
   const e = getEngine(preferredEngine);
+
+  validateMountPath(e, cwd);
 
   if (!imageExists(e, IMAGE_NAME)) {
     buildImage(e);
@@ -198,13 +209,21 @@ export function start({ name, cwd, extraArgs, agent, engine: preferredEngine }: 
     ...extraArgs,
     IMAGE_NAME,
   ]);
-  execFileSync(e.binary, runArgs, { stdio: 'inherit' });
+  try {
+    execFileSync(e.binary, runArgs, { stdio: 'inherit' });
+  } catch {
+    if (e.viaColima && !isColimaRunning()) {
+      console.error('Colima VM is not running. It may have crashed or been stopped.');
+      console.error('Restart it with: colima start');
+    }
+    process.exit(1);
+  }
 
   const encoded = agent.encodePath(mountTarget);
   const trustDir = `/home/dev/.claude/projects/${encoded}`;
   spawnSync(e.binary, engineArgs(e, ['exec', full, 'mkdir', '-p', trustDir]));
 
-  console.log(`Container '${full}' created and running (engine: ${e.binary}).`);
+  console.log(`Container '${full}' created and running (engine: ${e.type}${e.viaColima ? ' via colima' : ''}).`);
   return full;
 }
 

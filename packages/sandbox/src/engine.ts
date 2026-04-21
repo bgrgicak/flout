@@ -110,15 +110,15 @@ function startColimaForEngine(preferred?: EngineType): Engine | null {
  * need a VM anyway, so running Colima is preferred.
  */
 function detect(preferred?: EngineType): Engine | null {
-  // If a specific engine is requested, try it directly first
+  // 1. Colima (already running) — always checked first, even with --engine
+  const fromColima = engineFromColima(preferred);
+  if (fromColima) return fromColima;
+
+  // If a specific engine is requested, try it natively
   if (preferred) {
     const binary = preferred === 'nerdctl' ? 'nerdctl' : preferred;
     if (isEngineAvailable(binary)) return makeEngine(binary, false);
   }
-
-  // 1. Colima (already running)
-  const fromColima = engineFromColima(preferred);
-  if (fromColima) return fromColima;
 
   if (!preferred) {
     // 2. Podman
