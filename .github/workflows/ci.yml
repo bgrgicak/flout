@@ -39,7 +39,7 @@ jobs:
       - run: npm ci
       - run: npx tsc --build
       - name: E2E tests (sandbox with Docker)
-        run: npx tsx --test 'packages/cli/test/e2e/sandbox.e2e.ts'
+        run: npx tsx --test 'packages/cli/test/e2e/sandbox-engines.e2e.ts'
 
   e2e-podman:
     runs-on: ubuntu-latest
@@ -53,12 +53,11 @@ jobs:
       - run: npm ci
       - run: npx tsc --build
       - name: E2E tests (sandbox with Podman)
-        run: npx tsx --test 'packages/cli/test/e2e/sandbox.e2e.ts'
+        run: npx tsx --test 'packages/cli/test/e2e/sandbox-engines.e2e.ts'
 
   e2e-colima:
     runs-on: macos-latest
     # Colima needs nested virtualization which macOS CI runners don't reliably support.
-    # This job validates the install+start flow but may fail on VM creation.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -72,10 +71,9 @@ jobs:
       - run: npm ci
       - run: npx tsc --build
       - name: E2E tests (sandbox with Colima)
-        if: success()
         run: |
           if colima status 2>/dev/null; then
-            npx tsx --test 'packages/cli/test/e2e/sandbox.e2e.ts'
+            npx tsx --test 'packages/cli/test/e2e/sandbox-engines.e2e.ts'
           else
             echo "Skipping: Colima is not running"
           fi
