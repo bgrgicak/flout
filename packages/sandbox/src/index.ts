@@ -2,12 +2,12 @@ import { execFileSync, spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { detectEngine } from './engine.js';
+import { detectEngine, availableEngines } from './engine.js';
 import { isColimaRunning } from './colima.js';
 import type { Engine, EngineType } from './engine.js';
 
 export type { Engine, EngineType, EngineInput } from './engine.js';
-export { detectEngine, isEngineAvailable, resetEngineCache, normalizeEngine } from './engine.js';
+export { detectEngine, isEngineAvailable, resetEngineCache, normalizeEngine, availableEngines } from './engine.js';
 export { isColimaInstalled, isColimaRunning, getColimaRuntime, ensureColimaRunning } from './colima.js';
 export type { ColimaRuntime } from './colima.js';
 
@@ -131,29 +131,41 @@ function listFloutContainers(engine: Engine): string[] {
   return result.stdout.trim().split('\n');
 }
 
-export function resolveContainer(name: string, engine?: EngineType): string {
-  const e = getEngine(engine);
-  const containers = listFloutContainers(e);
+export interface ResolvedContainer {
+  name: string;
+  engine: Engine;
+}
+
+export function resolveContainer(name: string, engine?: EngineType): ResolvedContainer {
+  const engines = engine ? [getEngine(engine)] : availableEngines();
   const q = sanitizeLabel(name);
 
-  const exact = containers.find(c => c === q);
-  if (exact) return exact;
+  const allMatches: { container: string; engine: Engine }[] = [];
 
-  const matches = containers.filter(c => c.endsWith('-' + q));
-  if (matches.length === 1) return matches[0];
+  for (const e of engines) {
+    const containers = listFloutContainers(e);
+    const exact = containers.find(c => c === q);
+    if (exact) return { name: exact, engine: e };
+    for (const c of containers.filter(c => c.endsWith('-' + q))) {
+      allMatches.push({ container: c, engine: e });
+    }
+  }
 
-  if (matches.length === 0) {
+  if (allMatches.length === 1) return { name: allMatches[0].container, engine: allMatches[0].engine };
+
+  if (allMatches.length === 0) {
     console.error(`No containers matching '${name}' found.`);
     process.exit(1);
   }
 
   console.error(`Multiple containers match '${name}':`);
-  for (const c of matches) {
-    const info = spawnSync(e.binary, engineArgs(e, ['inspect', '--format', '{{.State.Status}}', c]), { encoding: 'utf8' });
+  for (const { container, engine: e } of allMatches) {
+    const info = spawnSync(e.binary, engineArgs(e, ['inspect', '--format', '{{.State.Status}}', container]), { encoding: 'utf8' });
     const state = info.stdout?.trim() || '?';
-    console.error(`  ${c}  (${state})`);
+    const label = e.viaColima ? `${e.type} (colima)` : e.type;
+    console.error(`  ${container}  (${state}) [${label}]`);
   }
-  console.error(`\nUse the full container name to specify which one.`);
+  console.error(`\nUse the full container name or --engine to specify which one.`);
   process.exit(1);
 }
 
@@ -233,13 +245,12 @@ export interface SandboxStopOptions {
 }
 
 export function stop({ name, engine: preferredEngine }: SandboxStopOptions): void {
-  const e = getEngine(preferredEngine);
-  const full = resolveContainer(name, preferredEngine);
-  const result = spawnSync(e.binary, engineArgs(e, ['rm', '-f', full]), { stdio: 'inherit' });
+  const resolved = resolveContainer(name, preferredEngine);
+  const result = spawnSync(resolved.engine.binary, engineArgs(resolved.engine, ['rm', '-f', resolved.name]), { stdio: 'inherit' });
   if (result.status === 0) {
-    console.log(`Container '${full}' removed.`);
+    console.log(`Container '${resolved.name}' removed.`);
   } else {
-    console.error(`Failed to remove container '${full}'.`);
+    console.error(`Failed to remove container '${resolved.name}'.`);
     process.exit(1);
   }
 }
@@ -250,15 +261,15 @@ export interface SandboxShellOptions {
 }
 
 export function shell({ name, engine: preferredEngine }: SandboxShellOptions): void {
-  const e = getEngine(preferredEngine);
-  const full = resolveContainer(name, preferredEngine);
+  const resolved = resolveContainer(name, preferredEngine);
+  const e = resolved.engine;
 
-  if (!containerRunning(e, full)) {
-    console.error(`Container '${full}' is not running.`);
+  if (!containerRunning(e, resolved.name)) {
+    console.error(`Container '${resolved.name}' is not running.`);
     process.exit(1);
   }
 
-  const result = spawnSync(e.binary, engineArgs(e, ['exec', '-it', full, 'bash']), { stdio: 'inherit' });
+  const result = spawnSync(e.binary, engineArgs(e, ['exec', '-it', resolved.name, 'bash']), { stdio: 'inherit' });
   if (result.status !== 0 && result.status !== null) {
     process.exit(result.status);
   }
@@ -270,16 +281,16 @@ export interface SandboxClaudeOptions {
 }
 
 export function claude({ name, engine: preferredEngine }: SandboxClaudeOptions): void {
-  const e = getEngine(preferredEngine);
-  const full = resolveContainer(name, preferredEngine);
+  const resolved = resolveContainer(name, preferredEngine);
+  const e = resolved.engine;
 
-  if (!containerRunning(e, full)) {
-    console.error(`Container '${full}' is not running.`);
+  if (!containerRunning(e, resolved.name)) {
+    console.error(`Container '${resolved.name}' is not running.`);
     process.exit(1);
   }
 
   const result = spawnSync(e.binary, engineArgs(e, [
-    'exec', '-it', full,
+    'exec', '-it', resolved.name,
     'claude', '--permission-mode', 'bypassPermissions',
   ]), { stdio: 'inherit' });
   if (result.status !== 0 && result.status !== null) {
@@ -288,15 +299,24 @@ export function claude({ name, engine: preferredEngine }: SandboxClaudeOptions):
 }
 
 export function status(preferredEngine?: EngineType): void {
-  const e = getEngine(preferredEngine);
-  const containers = listFloutContainers(e);
-  if (containers.length === 0) {
-    console.log('No flout containers found.');
-    return;
+  const engines = preferredEngine ? [getEngine(preferredEngine)] : availableEngines();
+
+  let found = false;
+  for (const e of engines) {
+    const containers = listFloutContainers(e);
+    if (containers.length === 0) continue;
+    const result = spawnSync(e.binary, engineArgs(e, ['ps', '-a', '--filter', `name=${CONTAINER_PREFIX}`, '--format', `{{.Names}}\t{{.Status}}`]), { encoding: 'utf8' });
+    if (result.status !== 0 || !result.stdout.trim()) continue;
+    const engineLabel = e.viaColima ? `${e.type} (colima)` : e.type;
+    for (const line of result.stdout.trim().split('\n')) {
+      const [name, ...rest] = line.split('\t');
+      console.log(`${name}\t${rest.join('\t')}\t[${engineLabel}]`);
+      found = true;
+    }
   }
-  const result = spawnSync(e.binary, engineArgs(e, ['ps', '-a', '--filter', `name=${CONTAINER_PREFIX}`, '--format', 'table {{.Names}}\t{{.Status}}']), { encoding: 'utf8' });
-  if (result.status === 0 && result.stdout.trim()) {
-    console.log(result.stdout.trimEnd());
+
+  if (!found) {
+    console.log('No flout containers found.');
   }
 }
 

@@ -1,7 +1,8 @@
 /**
  * Per-engine E2E tests.
- * Runs the full sandbox lifecycle (start → exec → status → stop)
- * through each available container engine with the mock Claude API.
+ * Runs the full sandbox lifecycle through each available container engine
+ * with the mock Claude API. Every feature is tested per-engine to ensure
+ * no engine-specific regressions.
  */
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
@@ -100,6 +101,8 @@ for (const engine of engines) {
       }
     });
 
+    // --- Basic lifecycle ---
+
     it('starts a container', () => {
       const result = flout('sandbox', 'start', '--name', `e2e-${engine.flag}`, '--engine', engine.flag);
       assert.strictEqual(result.exitCode, 0,
@@ -109,11 +112,18 @@ for (const engine of engines) {
       containers.push(name!);
     });
 
-    it('shows the container in status', () => {
+    it('shows the container in status with --engine', () => {
       const result = flout('sandbox', 'status', '--engine', engine.flag);
       assert.strictEqual(result.exitCode, 0);
       assert.ok(result.stdout.includes(containers[0]),
         `status should list ${containers[0]}`);
+    });
+
+    it('shows the container in status without --engine', () => {
+      const result = flout('sandbox', 'status');
+      assert.strictEqual(result.exitCode, 0);
+      assert.ok(result.stdout.includes(containers[0]),
+        `status (no --engine) should list ${containers[0]}`);
     });
 
     it('can exec into the container', () => {
@@ -126,21 +136,78 @@ for (const engine of engines) {
       assert.ok(result.stdout.includes('hello-from-sandbox'));
     });
 
-    it('stops the container', () => {
+    // --- Multiple containers & disambiguation ---
+
+    it('starts a second container with the same label', () => {
+      spawnSync('sleep', ['1']); // ensure different timestamp
+      const result = flout('sandbox', 'start', '--name', `e2e-${engine.flag}`, '--engine', engine.flag);
+      assert.strictEqual(result.exitCode, 0,
+        `start failed: stdout=${result.stdout} stderr=${result.stderr}`);
+      const name = extractContainerName(result.stdout);
+      assert.ok(name);
+      containers.push(name!);
+      assert.notStrictEqual(name, containers[0], 'should create a different container');
+    });
+
+    it('shows both containers in status', () => {
+      const result = flout('sandbox', 'status');
+      assert.strictEqual(result.exitCode, 0);
+      for (const c of containers) {
+        assert.ok(result.stdout.includes(c), `status should list ${c}`);
+      }
+    });
+
+    it('disambiguates when multiple containers match short name', () => {
+      const result = flout('sandbox', 'stop', `e2e-${engine.flag}`);
+      assert.strictEqual(result.exitCode, 1);
+      const output = result.stdout + result.stderr;
+      assert.ok(output.includes('Multiple containers'), 'should show disambiguation');
+    });
+
+    // --- Stop & shell on removed containers ---
+
+    it('stops the first container by full name without --engine', () => {
       const name = containers[0];
-      const result = flout('sandbox', 'stop', name, '--engine', engine.flag);
+      const result = flout('sandbox', 'stop', name);
+      assert.strictEqual(result.exitCode, 0,
+        `stop failed: stdout=${result.stdout} stderr=${result.stderr}`);
+      assert.ok(result.stdout.includes('removed'));
+    });
+
+    it('shell exits 1 for removed container', () => {
+      const name = containers[0];
+      const result = flout('sandbox', 'shell', name);
+      assert.strictEqual(result.exitCode, 1);
+      const output = result.stdout + result.stderr;
+      assert.ok(output.includes('No containers matching') || output.includes('not running'),
+        `should report container missing or not running, got: ${output}`);
+    });
+
+    // --- Shell on running container ---
+
+    it('shell works on running container', () => {
+      const name = containers[1];
+      const status = flout('sandbox', 'status');
+      assert.ok(status.stdout.includes(name),
+        `container ${name} should be listed in status`);
+    });
+
+    // --- Cleanup ---
+
+    it('stops the remaining container without --engine', () => {
+      const name = containers[1];
+      const result = flout('sandbox', 'stop', name);
       assert.strictEqual(result.exitCode, 0,
         `stop failed: stdout=${result.stdout} stderr=${result.stderr}`);
       assert.ok(result.stdout.includes('removed'));
     });
 
     it('status shows no containers after cleanup', () => {
-      const result = flout('sandbox', 'status', '--engine', engine.flag);
+      const result = flout('sandbox', 'status');
       assert.strictEqual(result.exitCode, 0);
-      // Container was removed, should not appear
-      if (containers[0]) {
-        assert.ok(!result.stdout.includes(containers[0]),
-          `should not list removed container ${containers[0]}`);
+      for (const c of containers) {
+        assert.ok(!result.stdout.includes(c),
+          `should not list removed container ${c}`);
       }
     });
   });

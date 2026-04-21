@@ -148,6 +148,33 @@ export function detectEngine(preferred?: EngineType): Engine {
   return engine;
 }
 
+/** Return all currently reachable engines (does not start Colima). */
+export function availableEngines(): Engine[] {
+  const engines: Engine[] = [];
+  const seen = new Set<string>();
+
+  // Colima (already running)
+  if (isColimaRunning()) {
+    const runtime = getColimaRuntime();
+    if (runtime) {
+      const binary = runtime === 'nerdctl' ? 'nerdctl' : runtime;
+      const e = makeEngine(binary, true);
+      engines.push(e);
+      seen.add(e.type);
+    }
+  }
+
+  // Native engines
+  for (const binary of ['podman', 'docker', 'nerdctl'] as const) {
+    if (!seen.has(binary) && isEngineAvailable(binary)) {
+      engines.push(makeEngine(binary, false));
+      seen.add(binary);
+    }
+  }
+
+  return engines;
+}
+
 export function resetEngineCache(): void {
   cachedEngine = null;
 }
