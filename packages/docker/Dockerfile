@@ -15,8 +15,9 @@ USER root
 RUN cd /tmp/flout && npm ci && npm run build \
     && cd packages/claude && npm pack && mv flout-claude-*.tgz /tmp/ && cd .. \
     && cd docker && npm pack && mv flout-docker-*.tgz /tmp/ && cd .. \
+    && cd sandbox && npm pack && mv flout-sandbox-*.tgz /tmp/ && cd .. \
     && cd cli && npm pack && mv flout-cli-*.tgz /tmp/ && cd .. \
-    && npm install -g /tmp/flout-claude-*.tgz /tmp/flout-docker-*.tgz /tmp/flout-cli-*.tgz \
+    && npm install -g /tmp/flout-claude-*.tgz /tmp/flout-docker-*.tgz /tmp/flout-sandbox-*.tgz /tmp/flout-cli-*.tgz \
     && rm -rf /tmp/flout /tmp/flout-*.tgz
 USER dev
 

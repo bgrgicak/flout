@@ -1,6 +1,6 @@
 # flout
 
-Manage persistent AI agent sessions with tmux. Start, stop, and connect to agent sessions that stay running in the background — locally, on a remote machine, or in Docker.
+Manage persistent AI agent sessions with tmux. Start, stop, and connect to agent sessions that stay running in the background — locally, on a remote machine, or in container sandboxes.
 
 Currently supports Claude Code. Extensible to other agents.
 
@@ -10,7 +10,7 @@ Currently supports Claude Code. Extensible to other agents.
 npm install -g @flout/cli
 ```
 
-Requires: Node.js 18+, tmux.
+Requires: Node.js 18+, tmux, and a container engine ([Colima](https://colima.run/) recommended, or Podman/Docker).
 
 ## Quick start
 
@@ -45,17 +45,21 @@ flout remote myagent --path ~/my-project
 
 `name` defaults to the basename of the current directory. `--path` defaults to the current directory.
 
-### Docker
+### Sandboxes
 
 | Command | Description |
 |---------|-------------|
-| `flout docker start [--name <n>]` | Build image if needed, start a container |
-| `flout docker stop [<name\|id>]` | Stop a container |
-| `flout docker shell [<name\|id>]` | Exec into a running container |
-| `flout docker claude [<name\|id>]` | Exec into a container running Claude |
-| `flout docker status` | List flout containers |
+| `flout sandbox start [--name <n>] [--engine docker\|podman\|containerd]` | Build image if needed, start a container |
+| `flout sandbox stop [<name\|id>]` | Stop a container |
+| `flout sandbox shell [<name\|id>]` | Exec into a running container |
+| `flout sandbox claude [<name\|id>]` | Exec into a container running Claude |
+| `flout sandbox status` | List flout containers |
 
-`--name` defaults to the basename of the current directory. Extra Docker flags can be passed after `--` (e.g. `flout docker start -- --gpus all`).
+`--name` defaults to the basename of the current directory. `--engine` selects the container engine (auto-detected if omitted). Extra engine flags can be passed after `--` (e.g. `flout sandbox start -- --gpus all`).
+
+Supported engines: Docker, Podman, containerd (via nerdctl/Colima). On macOS, Colima is started automatically if needed. On Linux, native engines are preferred.
+
+> **Note:** `flout docker` still works but is deprecated. Use `flout sandbox` instead.
 
 ### Multiple sessions
 
@@ -75,7 +79,7 @@ The same applies to Docker containers.
 
 flout wraps tmux and your agent's CLI. `flout remote` starts a tmux session running the agent in remote-control mode with a respawn loop — if the connection drops, it restarts automatically. `flout join` attaches your terminal to see what the agent is doing.
 
-`flout docker` manages container lifecycle — it builds an image with the agent and flout pre-installed, mounts your project directory, and pre-trusts it so sessions can start immediately.
+`flout sandbox` manages container lifecycle — it builds an image with the agent and flout pre-installed, mounts your project directory, and pre-trusts it so sessions can start immediately. It auto-detects the fastest available container engine (Docker, Podman, or containerd).
 
 ## Packages
 
@@ -83,7 +87,8 @@ flout wraps tmux and your agent's CLI. `flout remote` starts a tmux session runn
 |---------|-------------|
 | [`@flout/cli`](.) | Main CLI — session management, setup, types |
 | [`@flout/claude`](../claude/) | Claude Code agent provider |
-| [`@flout/docker`](../docker/) | Docker container runtime |
+| [`@flout/sandbox`](../sandbox/) | Multi-engine container sandbox (Docker, Podman, nerdctl, Colima) |
+| [`@flout/docker`](../docker/) | Docker container runtime (deprecated — use `@flout/sandbox`) |
 
 ## Development
 

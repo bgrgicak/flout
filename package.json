@@ -11,7 +11,8 @@
     "test:e2e": "tsc --build && npm run test:e2e --workspace=@flout/cli",
     "clean": "tsc --build --clean",
     "publish-all": "npm run build && npm publish --workspaces",
-    "publish-docker": "./packages/docker/publish.sh"
+    "publish-docker": "./packages/docker/publish.sh",
+    "publish-sandbox": "npm run build && npm publish --workspace=@flout/sandbox"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

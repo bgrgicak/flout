@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { execFileSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -8,17 +8,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const cli = path.join(__dirname, '..', 'src', 'cli.ts');
 
 function run(...args: string[]): { stdout: string; stderr: string; exitCode: number } {
-  try {
-    const stdout = execFileSync('npx', ['tsx', cli, ...args], {
-      encoding: 'utf8',
-      timeout: 10000,
-      cwd: path.join(__dirname, '..'),
-    });
-    return { stdout, stderr: '', exitCode: 0 };
-  } catch (err: unknown) {
-    const e = err as { stdout?: string; stderr?: string; status: number };
-    return { stdout: e.stdout || '', stderr: e.stderr || '', exitCode: e.status };
-  }
+  const result = spawnSync('npx', ['tsx', cli, ...args], {
+    encoding: 'utf8',
+    timeout: 10000,
+    cwd: path.join(__dirname, '..'),
+  });
+  return {
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
+    exitCode: result.status ?? 1,
+  };
 }
 
 describe('CLI', () => {
@@ -58,20 +57,26 @@ describe('CLI', () => {
     assert.strictEqual(exitCode, 1);
   });
 
-  it('includes docker in help output', () => {
+  it('includes sandbox in help output', () => {
     const { stdout } = run('--help');
-    assert.ok(stdout.includes('docker'));
+    assert.ok(stdout.includes('sandbox'));
   });
 
-  it('prints docker usage with no docker subcommand', () => {
-    const { stdout, exitCode } = run('docker');
+  it('prints sandbox usage with no sandbox subcommand', () => {
+    const { stdout, exitCode } = run('sandbox');
     assert.strictEqual(exitCode, 0);
-    assert.ok(stdout.includes('flout docker'));
+    assert.ok(stdout.includes('flout sandbox'));
   });
 
-  it('exits 1 for unknown docker subcommand', () => {
-    const { exitCode } = run('docker', 'nonexistent');
+  it('exits 1 for unknown sandbox subcommand', () => {
+    const { exitCode } = run('sandbox', 'nonexistent');
     assert.strictEqual(exitCode, 1);
+  });
+
+  it('docker command shows deprecation warning', () => {
+    const { stdout, stderr } = run('docker');
+    const output = stdout + stderr;
+    assert.ok(output.includes('deprecated'));
   });
 
   it('shows name|id in usage for stop, join, restart', () => {

@@ -8,10 +8,11 @@ on:
 
 jobs:
   build-lint-test:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
+        os: [ubuntu-latest, macos-latest]
         node-version: [20, 22]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,3 +25,47 @@ jobs:
         run: npm test
       - name: E2E tests (sessions)
         run: npx tsx --test 'packages/cli/test/e2e/sessions.e2e.ts'
+
+  e2e-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx tsc --build
+      - name: E2E tests (sandbox with Docker)
+        run: npx tsx --test 'packages/cli/test/e2e/sandbox.e2e.ts'
+
+  e2e-podman:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Podman
+        run: sudo apt-get update && sudo apt-get install -y podman
+      - run: npm ci
+      - run: npx tsc --build
+      - name: E2E tests (sandbox with Podman)
+        run: npx tsx --test 'packages/cli/test/e2e/sandbox.e2e.ts'
+        env:
+          FLOUT_ENGINE: podman
+
+  e2e-colima:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Colima
+        run: brew install colima docker
+      - name: Start Colima
+        run: colima start
+      - run: npm ci
+      - run: npx tsc --build
+      - name: E2E tests (sandbox with Colima)
+        run: npx tsx --test 'packages/cli/test/e2e/sandbox.e2e.ts'

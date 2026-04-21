@@ -1,5 +1,7 @@
 # @flout/docker
 
+> **Deprecated:** Use [`@flout/sandbox`](../sandbox/) instead. It supports Docker, Podman, and containerd with automatic engine detection.
+
 Docker runtime for [@flout/cli](../cli/). Manages container lifecycle — build images, start/stop containers, and exec into them.
 
 ## Usage

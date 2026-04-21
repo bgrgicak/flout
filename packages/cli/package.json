@@ -37,7 +37,8 @@
   ],
   "dependencies": {
     "@flout/claude": "*",
-    "@flout/docker": "*"
+    "@flout/docker": "*",
+    "@flout/sandbox": "*"
   },
   "engines": {
     "node": ">=20"

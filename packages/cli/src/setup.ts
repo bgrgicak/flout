@@ -2,11 +2,20 @@ import { spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { isColimaInstalled, isEngineAvailable } from '@flout/sandbox';
 import type { Agent } from './types.js';
 
 function checkBinary(name: string): boolean {
   const result = spawnSync('which', [name]);
   return result.status === 0;
+}
+
+function checkContainerEngine(): boolean {
+  if (isColimaInstalled()) return true;
+  if (isEngineAvailable('podman')) return true;
+  if (isEngineAvailable('docker')) return true;
+  if (isEngineAvailable('nerdctl')) return true;
+  return false;
 }
 
 export function setup(agent: Agent): void {
@@ -22,6 +31,20 @@ export function setup(agent: Agent): void {
       }
       ok = false;
     }
+  }
+
+  if (checkContainerEngine()) {
+    const engines: string[] = [];
+    if (isColimaInstalled()) engines.push('colima');
+    if (isEngineAvailable('podman')) engines.push('podman');
+    if (isEngineAvailable('docker')) engines.push('docker');
+    if (isEngineAvailable('nerdctl')) engines.push('nerdctl');
+    console.log(`  ✓ container engine (${engines.join(', ')})`);
+  } else {
+    console.error('  ✗ container engine — no container runtime found');
+    console.error('    Install Colima (recommended): https://colima.run/');
+    console.error('    Or install Podman or Docker.');
+    ok = false;
   }
 
   if (!ok) {

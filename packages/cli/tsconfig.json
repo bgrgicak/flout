@@ -9,6 +9,7 @@
   "references": [
     { "path": "../claude" },
     { "path": "../docker" },
+    { "path": "../sandbox" },
     { "path": "../claude-mock-api" }
   ]
 }

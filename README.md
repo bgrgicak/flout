@@ -1,6 +1,6 @@
 # flout
 
-Manage persistent AI agent sessions with tmux. Start, stop, join, and restart long-running Claude Code sessions from the command line — locally or inside Docker containers.
+Manage persistent AI agent sessions with tmux. Start, stop, join, and restart long-running Claude Code sessions from the command line — locally or in container sandboxes (Docker, Podman, or containerd via Colima).
 
 ## Install
 
@@ -8,7 +8,7 @@ Manage persistent AI agent sessions with tmux. Start, stop, join, and restart lo
 npm install -g @flout/cli
 ```
 
-Requires Node.js 18+ and tmux.
+Requires Node.js 18+, tmux, and a container engine ([Colima](https://colima.run/) recommended, or Podman/Docker).
 
 ## Usage
 
@@ -22,7 +22,7 @@ flout list                           List active sessions
 flout status                         Show login and session status
 flout restart <name|id> [--path <dir>]  Restart a remote session
 flout trust <dir>                    Trust a project directory
-flout docker <cmd> [<name|id>]       Manage Docker containers
+flout sandbox <cmd> [<name|id>]      Manage container sandboxes
 ```
 
 ### Local sessions
@@ -57,17 +57,20 @@ flout stop flout-0410-152301-myproject  # stop by full ID
 
 When only one session matches a name, commands like `join` and `stop` resolve it automatically. When multiple match, flout lists the options so you can use the full ID.
 
-### Docker
+### Sandboxes
 
-Run sessions in isolated Docker containers.
+Run sessions in isolated containers. Supports Docker, Podman, and containerd (via Colima or nerdctl). The engine is auto-detected — fastest available is used.
 
 ```bash
-flout docker start          # start a container for the current directory
-flout docker shell          # open a shell in the container
-flout docker claude         # open claude directly in the container
-flout docker stop           # stop the container
-flout docker status         # list running containers
+flout sandbox start                    # start a container (auto-detects engine)
+flout sandbox start --engine podman    # force a specific engine
+flout sandbox shell                    # open a shell in the container
+flout sandbox claude                   # open claude directly in the container
+flout sandbox stop                     # stop the container
+flout sandbox status                   # list running containers
 ```
+
+On macOS, Colima is started automatically if needed. On Linux, native Docker or Podman is preferred.
 
 ## License
 

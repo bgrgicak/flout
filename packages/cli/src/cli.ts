@@ -1,6 +1,8 @@
 import path from 'path';
 import claude from '@flout/claude';
 import * as docker from '@flout/docker';
+import * as sandbox from '@flout/sandbox';
+import { normalizeEngine } from '@flout/sandbox';
 import * as sessions from './sessions.js';
 import { setup, trust } from './setup.js';
 import type { Agent } from './types.js';
@@ -40,7 +42,7 @@ Usage:
   flout status                         Show login and session status
   flout restart <name|id> [--path <dir>]  Restart a remote session
   flout trust <dir>                    Trust a project directory
-  flout docker <cmd> [<name|id>]       Manage Docker containers (start|stop|shell|claude|status)
+  flout sandbox <cmd> [<name|id>]      Manage container sandboxes (start|stop|shell|claude|status)
 
 Session names are optional for start/remote (defaults to directory basename).
 When multiple sessions share a name, use the full ID shown by flout list.`);
@@ -101,7 +103,49 @@ switch (command) {
     break;
   }
 
+  case 'sandbox': {
+    const sub = args[1];
+    const rawEngine = getFlag('--engine');
+    const engineFlag = rawEngine ? normalizeEngine(rawEngine) : undefined;
+    switch (sub) {
+      case 'start': {
+        const name = getFlag('--name') || path.basename(process.cwd());
+        sandbox.start({
+          name,
+          cwd: process.cwd(),
+          extraArgs: getPassthroughArgs(),
+          agent,
+          engine: engineFlag,
+        });
+        break;
+      }
+      case 'stop': {
+        const name = args[2] || getFlag('--name') || path.basename(process.cwd());
+        sandbox.stop({ name, engine: engineFlag });
+        break;
+      }
+      case 'shell': {
+        const name = args[2] || getFlag('--name') || path.basename(process.cwd());
+        sandbox.shell({ name, engine: engineFlag });
+        break;
+      }
+      case 'claude': {
+        const name = args[2] || getFlag('--name') || path.basename(process.cwd());
+        sandbox.claude({ name, engine: engineFlag });
+        break;
+      }
+      case 'status':
+        sandbox.status(engineFlag);
+        break;
+      default:
+        sandbox.usage();
+        process.exit(sub ? 1 : 0);
+    }
+    break;
+  }
+
   case 'docker': {
+    console.warn("Warning: 'flout docker' is deprecated. Use 'flout sandbox' instead.");
     const sub = args[1];
     switch (sub) {
       case 'start': {

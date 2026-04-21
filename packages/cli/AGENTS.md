@@ -15,7 +15,12 @@ packages/
   claude/             @flout/claude — Claude Code provider
     src/index.ts      Claude-specific commands, auth, and trust checking
 
-  docker/             @flout/docker — Docker runtime
+  sandbox/            @flout/sandbox — Multi-engine container sandbox
+    src/engine.ts     Engine detection (Docker, Podman, nerdctl) and abstraction
+    src/colima.ts     Colima VM lifecycle management
+    src/index.ts      Container lifecycle (start, stop, shell, status)
+
+  docker/             @flout/docker — Docker runtime (deprecated, use sandbox)
     src/index.ts      Container lifecycle (start, stop, shell, status)
 ```
 
@@ -47,11 +52,17 @@ interface Agent {
 2. Add it as a workspace dependency in `packages/cli/package.json`
 3. Wire it up in `packages/cli/src/cli.ts`
 
+## Container sandbox
+
+The `@flout/sandbox` package provides multi-engine container management. It supports Docker, Podman, and nerdctl/containerd, with optional Colima VM management for macOS. The engine is auto-detected (fastest available) or can be overridden with `--engine`.
+
+On Linux, native engines (Docker, Podman) are preferred over Colima. On macOS, Colima is preferred and started automatically if needed.
+
 ## Adding a new runtime
 
-1. Create a new package `packages/<name>/` (like `packages/docker/`)
-2. Define a minimal interface for what you need from the agent (structural typing)
-3. Wire it up as a subcommand in `packages/cli/src/cli.ts`
+1. Add the engine to `packages/sandbox/src/engine.ts` (detection logic)
+2. Ensure the CLI interface is compatible (most OCI runtimes share `docker`-compatible commands)
+3. Add tests for the new engine in `packages/sandbox/test/`
 
 ## Building
 
