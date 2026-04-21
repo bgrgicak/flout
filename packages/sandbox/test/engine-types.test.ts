@@ -24,7 +24,7 @@ describe('normalizeEngine', () => {
 });
 
 describe('engine type: docker', () => {
-  const hasDocker = spawnSync('which', ['docker'], { stdio: 'ignore' }).status === 0;
+  const hasDocker = isEngineAvailable('docker');
 
   beforeEach(() => resetEngineCache());
 
@@ -53,7 +53,7 @@ describe('engine type: docker', () => {
 });
 
 describe('engine type: podman', () => {
-  const hasPodman = spawnSync('which', ['podman'], { stdio: 'ignore' }).status === 0;
+  const hasPodman = isEngineAvailable('podman');
 
   beforeEach(() => resetEngineCache());
 
@@ -80,7 +80,7 @@ describe('engine type: podman', () => {
 });
 
 describe('engine type: nerdctl (containerd)', () => {
-  const hasNerdctl = spawnSync('which', ['nerdctl'], { stdio: 'ignore' }).status === 0;
+  const hasNerdctl = isEngineAvailable('nerdctl') || isColimaRunning();
 
   beforeEach(() => resetEngineCache());
 
@@ -194,11 +194,7 @@ describe('cross-engine compatibility', () => {
   beforeEach(() => resetEngineCache());
 
   it('auto-detected engine has valid type', () => {
-    const hasAnyEngine =
-      spawnSync('which', ['docker'], { stdio: 'ignore' }).status === 0 ||
-      spawnSync('which', ['podman'], { stdio: 'ignore' }).status === 0 ||
-      spawnSync('which', ['nerdctl'], { stdio: 'ignore' }).status === 0;
-    if (!hasAnyEngine) return;
+    if (!isEngineAvailable('docker') && !isEngineAvailable('podman') && !isEngineAvailable('nerdctl')) return;
 
     const engine = detectEngine();
     assert.ok(['docker', 'podman', 'nerdctl'].includes(engine.type),

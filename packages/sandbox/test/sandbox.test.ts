@@ -33,9 +33,9 @@ function runCli(...args: string[]): { stdout: string; stderr: string; exitCode: 
 
 function hasAnyEngine(): boolean {
   return (
-    spawnSync('which', ['docker'], { stdio: 'ignore' }).status === 0 ||
-    spawnSync('which', ['podman'], { stdio: 'ignore' }).status === 0 ||
-    spawnSync('which', ['nerdctl'], { stdio: 'ignore' }).status === 0
+    sandbox.isEngineAvailable('docker') ||
+    sandbox.isEngineAvailable('podman') ||
+    sandbox.isEngineAvailable('nerdctl')
   );
 }
 
