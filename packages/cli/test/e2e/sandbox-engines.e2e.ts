@@ -126,7 +126,7 @@ for (const engine of engines) {
         `status (no --engine) should list ${containers[0]}`);
     });
 
-    it('can exec into the container', () => {
+    it('can exec into the container via raw engine binary', () => {
       const name = containers[0];
       const result = spawnSync(engine.cleanupBinary,
         [...engine.cleanupPrefix, 'exec', name, 'echo', 'hello-from-sandbox'],
@@ -134,6 +134,24 @@ for (const engine of engines) {
       assert.strictEqual(result.status, 0,
         `exec failed: ${result.stderr}`);
       assert.ok(result.stdout.includes('hello-from-sandbox'));
+    });
+
+    it('can exec into the container via flout sandbox shell', () => {
+      const name = containers[0];
+      const result = spawnSync('npx', ['tsx', cli, 'sandbox', 'shell', name], {
+        encoding: 'utf8',
+        timeout: 30000,
+        cwd: pkgRoot,
+        input: 'echo hello-from-shell && exit\n',
+        env: {
+          ...process.env,
+          CLAUDE_CODE_API_BASE_URL: `http://127.0.0.1:${mockPort}`,
+        },
+      });
+      assert.strictEqual(result.status, 0,
+        `shell failed: stdout=${result.stdout} stderr=${result.stderr}`);
+      assert.ok(result.stdout.includes('hello-from-shell'),
+        `shell output should contain 'hello-from-shell', got: ${result.stdout}`);
     });
 
     // --- Multiple containers & disambiguation ---

@@ -2,6 +2,7 @@ import { execFileSync, spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import tty from 'tty';
 import { detectEngine, availableEngines } from './engine.js';
 import { isColimaRunning } from './colima.js';
 import type { Engine, EngineType } from './engine.js';
@@ -72,6 +73,11 @@ function engineArgs(engine: Engine, args: string[]): string[] {
 function imageExists(engine: Engine, name: string): boolean {
   const result = spawnSync(engine.binary, engineArgs(engine, ['image', 'inspect', name]), { stdio: 'ignore' });
   return result.status === 0;
+}
+
+/** Build exec flags: -it when stdin is a real TTY, -i otherwise. */
+function execFlags(): string[] {
+  return tty.isatty(0) ? ['-it'] : ['-i'];
 }
 
 function containerRunning(engine: Engine, name: string): boolean {
@@ -269,7 +275,7 @@ export function shell({ name, engine: preferredEngine }: SandboxShellOptions): v
     process.exit(1);
   }
 
-  const result = spawnSync(e.binary, engineArgs(e, ['exec', '-it', resolved.name, 'bash']), { stdio: 'inherit' });
+  const result = spawnSync(e.binary, engineArgs(e, ['exec', ...execFlags(), resolved.name, 'bash']), { stdio: 'inherit' });
   if (result.status !== 0 && result.status !== null) {
     process.exit(result.status);
   }
@@ -290,7 +296,7 @@ export function claude({ name, engine: preferredEngine }: SandboxClaudeOptions):
   }
 
   const result = spawnSync(e.binary, engineArgs(e, [
-    'exec', '-it', resolved.name,
+    'exec', ...execFlags(), resolved.name,
     'claude', '--permission-mode', 'bypassPermissions',
   ]), { stdio: 'inherit' });
   if (result.status !== 0 && result.status !== null) {
