@@ -73,6 +73,10 @@ export function start(label: string, dir: string, agent: Agent): string {
 }
 
 export function remote(label: string, dir: string, agent: Agent): string {
+  if (!agent.remoteCommand) {
+    console.error(`Agent '${agent.name}' does not support remote-control sessions.`);
+    process.exit(1);
+  }
   const resolved = path.resolve(dir);
   if (!fs.existsSync(resolved)) {
     console.error(`Error: directory '${resolved}' does not exist`);
@@ -130,6 +134,10 @@ export function list(): void {
 }
 
 export function restart(query: string, dir: string, agent: Agent): string {
+  if (!agent.remoteCommand) {
+    console.error(`Agent '${agent.name}' does not support remote-control sessions.`);
+    process.exit(1);
+  }
   const session = resolveSession(query);
   spawnSync('tmux', ['kill-session', '-t', session]);
   const label = session.replace(/^flout-\d{4}-\d{6}-/, '');
@@ -138,8 +146,10 @@ export function restart(query: string, dir: string, agent: Agent): string {
 
 export function status(agent: Agent): void {
   if (!agent.isAuthenticated()) {
-    console.log('Not logged in. Run: claude');
-    console.log('Go through the setup process, then run: flout remote claude');
+    console.log(`Not logged in. Run: ${agent.loginCommand()}`);
+    if (agent.remoteCommand) {
+      console.log(`Go through the setup process, then run: flout remote ${agent.name}`);
+    }
     return;
   }
   list();

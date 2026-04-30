@@ -2,10 +2,12 @@ export interface Agent {
   name: string;
   binary: string;
   installHint?: string;
-  remoteCommand(sessionName: string): string;
+  /** Long-running remote-control mode. Omit if the agent has no equivalent. */
+  remoteCommand?(sessionName: string): string;
   startCommand(): string;
   loginCommand(): string;
-  setupTokenCommand(): string;
+  /** Optional long-lived token setup step run after login. */
+  setupTokenCommand?(): string;
   isAuthenticated(): boolean;
   isTrusted(dir: string): boolean;
   trustCommand(): string;

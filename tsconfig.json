@@ -3,6 +3,7 @@
   "references": [
     { "path": "packages/claude" },
     { "path": "packages/docker" },
+    { "path": "packages/opencode" },
     { "path": "packages/sandbox" },
     { "path": "packages/claude-mock-api" },
     { "path": "packages/cli" }

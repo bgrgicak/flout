@@ -38,6 +38,7 @@
   "dependencies": {
     "@flout/claude": "*",
     "@flout/docker": "*",
+    "@flout/opencode": "*",
     "@flout/sandbox": "*"
   },
   "engines": {
