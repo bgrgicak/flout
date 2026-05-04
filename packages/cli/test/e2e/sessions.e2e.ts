@@ -96,7 +96,10 @@ describe('e2e: sessions', () => {
   it('lists sessions with directories', () => {
     const result = flout('list');
     assert.strictEqual(result.exitCode, 0);
-    assert.ok(result.stdout.includes('flout-'), 'should list flout sessions');
+    // The list output shows the human-friendly label rather than the full
+    // flout-MMDD-HHMMSS-… id, so assert on something we know is in there.
+    assert.ok(result.stdout.includes('LABEL'), 'should print the table header');
+    assert.ok(result.stdout.includes('e2etest'), 'should include the e2etest session label');
   });
 
   it('stops a session by label', () => {
