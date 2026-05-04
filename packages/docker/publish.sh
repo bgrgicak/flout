@@ -13,8 +13,8 @@ set -euo pipefail
 #
 # Usage:
 #   ./publish.sh                  # builds and pushes with version from package.json + latest
-#   ./publish.sh 0.2.0            # builds and pushes with explicit version tag + latest
-#   ./publish.sh 0.2.0 --no-latest  # pushes only the version tag
+#   ./publish.sh 0.3.0            # builds and pushes with explicit version tag + latest
+#   ./publish.sh 0.3.0 --no-latest  # pushes only the version tag
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"

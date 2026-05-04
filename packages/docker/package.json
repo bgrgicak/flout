@@ -1,6 +1,6 @@
 {
   "name": "@flout/docker",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Docker container management for flout",
   "main": "dist/src/index.js",
