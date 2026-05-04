@@ -18,14 +18,14 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.6.0",
-    "eslint": "^10.3.0",
+    "eslint": "^10.3.1",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.1"
   },
   "name": "flout",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "dependencies": {
-    "@flout/cli": "^0.3.0"
+    "@flout/cli": "^0.3.1"
   }
 }
