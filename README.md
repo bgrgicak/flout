@@ -1,6 +1,6 @@
 # flout
 
-Manage persistent AI agent sessions with tmux. Start, stop, join, and restart long-running Claude Code sessions from the command line — locally or in container sandboxes (Docker, Podman, or containerd via Colima).
+Manage persistent AI agent sessions with tmux. Start, stop, join, and restart long-running coding-agent sessions (Claude Code or opencode) from the command line — locally or in container sandboxes (Docker, Podman, or containerd via Colima).
 
 ## Install
 
@@ -34,6 +34,17 @@ sudo flout start myproject  # start with sandbox mode (IS_SANDBOX=1)
 flout join myproject     # reattach after disconnecting
 flout stop myproject     # tear it down
 ```
+
+### Choosing an agent
+
+flout defaults to Claude Code. Pass `--agent opencode` (or set `FLOUT_AGENT=opencode`) to use [opencode](https://opencode.ai) instead. opencode does not have a remote-control mode, so `flout remote` and `flout restart` only work with Claude.
+
+```bash
+flout setup --agent opencode             # one-time setup for opencode
+flout start myproject --agent opencode   # start an opencode session
+```
+
+opencode ships with built-in models that work without an API key, so `flout status --agent opencode` is happy as soon as the `opencode` binary is on your `PATH`. Run `opencode auth login` only if you want to register additional providers.
 
 ### Remote sessions
 

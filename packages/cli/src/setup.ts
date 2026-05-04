@@ -59,11 +59,13 @@ export function setup(agent: Agent): void {
     process.exit(1);
   }
 
-  console.log('\nSetting up long-lived token...');
-  const token = spawnSync(agent.setupTokenCommand(), { stdio: 'inherit', shell: true });
-  if (token.status !== 0) {
-    console.error('Token setup failed.');
-    process.exit(1);
+  if (agent.setupTokenCommand) {
+    console.log('\nSetting up long-lived token...');
+    const token = spawnSync(agent.setupTokenCommand(), { stdio: 'inherit', shell: true });
+    if (token.status !== 0) {
+      console.error('Token setup failed.');
+      process.exit(1);
+    }
   }
 
   console.log('\nSetup complete.');

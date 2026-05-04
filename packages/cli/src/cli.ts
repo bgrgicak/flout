@@ -1,5 +1,6 @@
 import path from 'path';
 import claude from '@flout/claude';
+import opencode from '@flout/opencode';
 import * as docker from '@flout/docker';
 import * as sandbox from '@flout/sandbox';
 import { normalizeEngine } from '@flout/sandbox';
@@ -7,15 +8,28 @@ import * as sessions from './sessions.js';
 import { setup, trust } from './setup.js';
 import type { Agent } from './types.js';
 
-const agent: Agent = claude;
+const AGENTS: Record<string, Agent> = { claude, opencode };
+
 const args = process.argv.slice(2);
-const command = args[0];
 
 function getFlag(flag: string): string | null {
   const idx = args.indexOf(flag);
   if (idx === -1 || idx + 1 >= args.length) return null;
   return args[idx + 1];
 }
+
+function resolveAgent(): Agent {
+  const name = getFlag('--agent') || process.env.FLOUT_AGENT || 'claude';
+  const a = AGENTS[name];
+  if (!a) {
+    console.error(`Unknown agent '${name}'. Available: ${Object.keys(AGENTS).join(', ')}`);
+    process.exit(1);
+  }
+  return a;
+}
+
+const agent: Agent = resolveAgent();
+const command = args[0];
 
 function getPassthroughArgs(): string[] {
   const idx = args.indexOf('--');
@@ -44,8 +58,12 @@ Usage:
   flout trust <dir>                    Trust a project directory
   flout sandbox <cmd> [<name|id>]      Manage container sandboxes (start|stop|shell|claude|status)
 
+Global flags:
+  --agent <claude|opencode>            Pick the agent (default: claude, or $FLOUT_AGENT)
+
 Session names are optional for start/remote (defaults to directory basename).
-When multiple sessions share a name, use the full ID shown by flout list.`);
+When multiple sessions share a name, use the full ID shown by flout list.
+Note: 'remote' and 'restart' require an agent that supports remote-control mode.`);
 }
 
 switch (command) {

@@ -89,4 +89,28 @@ describe('CLI', () => {
     assert.ok(stdout.includes('start [name]'));
     assert.ok(stdout.includes('remote [name]'));
   });
+
+  it('lists --agent flag in help', () => {
+    const { stdout } = run('--help');
+    assert.ok(stdout.includes('--agent'));
+    assert.ok(stdout.includes('opencode'));
+  });
+
+  it('exits 1 on unknown --agent value', () => {
+    const { stderr, exitCode } = run('status', '--agent', 'nonexistent');
+    assert.strictEqual(exitCode, 1);
+    assert.ok(stderr.includes('Unknown agent'));
+  });
+
+  it('errors on remote when agent does not support it (opencode)', () => {
+    const { stderr, exitCode } = run('remote', 'demo', '--agent', 'opencode');
+    assert.strictEqual(exitCode, 1);
+    assert.ok(stderr.includes('does not support remote-control'));
+  });
+
+  it('errors on restart when agent does not support remote-control (opencode)', () => {
+    const { stderr, exitCode } = run('restart', 'anything', '--agent', 'opencode');
+    assert.strictEqual(exitCode, 1);
+    assert.ok(stderr.includes('does not support remote-control'));
+  });
 });
