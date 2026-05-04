@@ -76,16 +76,16 @@ describe('e2e: sessions', () => {
   });
 
   it('starts a session with a name', () => {
-    const result = flout('start', 'e2etest', '--path', '/tmp');
+    const result = flout('claude', 'e2etest', '--path', '/tmp');
     assert.strictEqual(result.exitCode, 0, `stderr: ${result.stderr}`);
     const id = extractSessionId(result.stdout);
     assert.ok(id, 'should output session ID');
     createdSessions.push(id!);
-    assert.match(id!, /^flout-\d{4}-\d{6}-e2etest$/);
+    assert.match(id!, /^flout-\d{4}-\d{6}-claude-e2etest$/);
   });
 
   it('starts a session with default name from cwd', () => {
-    const result = flout('start', '--path', '/tmp');
+    const result = flout('claude', '--path', '/tmp');
     assert.strictEqual(result.exitCode, 0, `stderr: ${result.stderr}`);
     const id = extractSessionId(result.stdout);
     assert.ok(id, 'should output session ID');
@@ -100,7 +100,7 @@ describe('e2e: sessions', () => {
   });
 
   it('stops a session by label', () => {
-    const startResult = flout('start', 'stopme', '--path', '/tmp');
+    const startResult = flout('claude', 'stopme', '--path', '/tmp');
     const id = extractSessionId(startResult.stdout);
     assert.ok(id);
     createdSessions.push(id!);
@@ -114,7 +114,7 @@ describe('e2e: sessions', () => {
   });
 
   it('stops a session by full ID', () => {
-    const startResult = flout('start', 'byid', '--path', '/tmp');
+    const startResult = flout('claude', 'byid', '--path', '/tmp');
     const id = extractSessionId(startResult.stdout);
     assert.ok(id);
     createdSessions.push(id!);
@@ -124,14 +124,14 @@ describe('e2e: sessions', () => {
   });
 
   it('allows multiple sessions with the same label', () => {
-    const r1 = flout('start', 'multi', '--path', '/tmp');
+    const r1 = flout('claude', 'multi', '--path', '/tmp');
     const id1 = extractSessionId(r1.stdout);
     assert.ok(id1);
     createdSessions.push(id1!);
 
     spawnSync('sleep', ['1']);
 
-    const r2 = flout('start', 'multi', '--path', '/tmp');
+    const r2 = flout('claude', 'multi', '--path', '/tmp');
     const id2 = extractSessionId(r2.stdout);
     assert.ok(id2);
     createdSessions.push(id2!);
@@ -151,10 +151,11 @@ describe('e2e: sessions', () => {
     assert.ok(output.includes('Multiple sessions'), 'should show disambiguation');
   });
 
-  it('shows status', () => {
+  it('shows status with claude logged in via mock credentials', () => {
     const result = flout('status');
     assert.strictEqual(result.exitCode, 0);
-    assert.ok(!result.stdout.includes('Not logged in'));
+    assert.ok(result.stdout.includes('Agents:'));
+    assert.ok(result.stdout.includes('claude: logged in'));
   });
 
   it('fails for nonexistent session', () => {

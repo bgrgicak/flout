@@ -233,6 +233,11 @@ describe('cross-engine compatibility', () => {
 
     for (const { name, binary } of engines) {
       if (!isEngineAvailable(binary)) continue;
+      // Binary may be installed without a usable backend (e.g. nerdctl with no
+      // running containerd/Colima). Skip in that case — the test only validates
+      // flout's command shape against engines that can actually serve queries.
+      const probe = spawnSync(binary, ['info'], { stdio: 'ignore', timeout: 5000 });
+      if (probe.status !== 0) continue;
 
       const result = spawnSync(binary, [
         'ps', '-a', '--filter', 'name=flout-nonexistent-test', '--format', '{{.Names}}',

@@ -13,7 +13,7 @@ const opencodeAvailable = spawnSync('which', ['opencode'], { stdio: 'ignore' }).
 const createdSessions: string[] = [];
 
 function flout(...args: string[]): { stdout: string; stderr: string; exitCode: number | null } {
-  const result = spawnSync('npx', ['tsx', cli, ...args, '--agent', 'opencode'], {
+  const result = spawnSync('npx', ['tsx', cli, ...args], {
     encoding: 'utf8',
     timeout: 15000,
     cwd: pkgRoot,
@@ -54,12 +54,13 @@ suite('e2e: opencode agent', () => {
   });
 
   it('starts a session that runs opencode', () => {
-    const result = flout('start', 'oc-e2e', '--path', '/tmp');
+    const result = flout('opencode', 'oc-e2e', '--path', '/tmp');
     assert.strictEqual(result.exitCode, 0, `stderr: ${result.stderr}`);
     const id = extractSessionId(result.stdout);
     assert.ok(id, `should output session ID, got: ${result.stdout}`);
     createdSessions.push(id!);
 
+    assert.match(id!, /^flout-\d{4}-\d{6}-opencode-oc-e2e$/);
     assert.ok(tmuxHasSession(id!), 'tmux session should exist');
     assert.ok(paneCommand(id!).includes('opencode'), `pane command should invoke opencode, got: ${paneCommand(id!)}`);
   });
@@ -70,10 +71,10 @@ suite('e2e: opencode agent', () => {
     assert.ok(result.stdout.includes('oc-e2e'), `list should contain oc-e2e, got: ${result.stdout}`);
   });
 
-  it('status reports logged in (opencode has built-in models)', () => {
+  it('status reports opencode logged in (built-in models)', () => {
     const result = flout('status');
     assert.strictEqual(result.exitCode, 0);
-    assert.ok(!result.stdout.includes('Not logged in'), `expected logged-in status, got: ${result.stdout}`);
+    assert.ok(result.stdout.includes('opencode: logged in'), `expected opencode logged-in line, got: ${result.stdout}`);
   });
 
   it('stops the session', () => {
@@ -83,14 +84,8 @@ suite('e2e: opencode agent', () => {
     assert.ok(!tmuxHasSession(id), 'tmux session should be gone');
   });
 
-  it('refuses remote (opencode has no remote-control mode)', () => {
-    const result = flout('remote', 'oc-remote', '--path', '/tmp');
-    assert.strictEqual(result.exitCode, 1);
-    assert.ok(result.stderr.includes('does not support remote-control'));
-  });
-
-  it('refuses restart (no remote-control mode)', () => {
-    const result = flout('restart', 'nonexistent', '--path', '/tmp');
+  it('refuses opencode remote (opencode has no remote-control mode)', () => {
+    const result = flout('opencode', 'remote', 'oc-remote', '--path', '/tmp');
     assert.strictEqual(result.exitCode, 1);
     assert.ok(result.stderr.includes('does not support remote-control'));
   });

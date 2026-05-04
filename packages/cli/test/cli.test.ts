@@ -26,8 +26,9 @@ describe('CLI', () => {
     assert.strictEqual(exitCode, 0);
     assert.ok(stdout.includes('flout'));
     assert.ok(stdout.includes('setup'));
-    assert.ok(stdout.includes('start'));
-    assert.ok(stdout.includes('remote'));
+    assert.ok(stdout.includes('claude'));
+    assert.ok(stdout.includes('opencode'));
+    assert.ok(stdout.includes('claude remote'));
     assert.ok(stdout.includes('stop'));
     assert.ok(stdout.includes('join'));
     assert.ok(stdout.includes('list'));
@@ -49,7 +50,6 @@ describe('CLI', () => {
   it('exits 1 when stop is missing name', () => {
     const { exitCode } = run('stop');
     assert.strictEqual(exitCode, 1);
-    // stop still requires a name/id argument
   });
 
   it('exits 1 when join is missing name', () => {
@@ -84,33 +84,35 @@ describe('CLI', () => {
     assert.ok(stdout.includes('name|id'));
   });
 
-  it('shows name as optional for start and remote', () => {
+  it('shows name as optional for agent commands', () => {
     const { stdout } = run('--help');
-    assert.ok(stdout.includes('start [name]'));
-    assert.ok(stdout.includes('remote [name]'));
+    assert.ok(stdout.includes('claude [name]'));
+    assert.ok(stdout.includes('opencode [name]'));
   });
 
-  it('lists --agent flag in help', () => {
-    const { stdout } = run('--help');
-    assert.ok(stdout.includes('--agent'));
-    assert.ok(stdout.includes('opencode'));
+  it('rejects the legacy `flout start` command with a hint', () => {
+    const { stderr, exitCode } = run('start');
+    assert.strictEqual(exitCode, 1);
+    assert.ok(stderr.includes('flout claude'));
   });
 
-  it('exits 1 on unknown --agent value', () => {
-    const { stderr, exitCode } = run('status', '--agent', 'nonexistent');
+  it('rejects the legacy `flout remote` command with a hint', () => {
+    const { stderr, exitCode } = run('remote');
+    assert.strictEqual(exitCode, 1);
+    assert.ok(stderr.includes('flout claude remote'));
+  });
+
+  it('rejects unknown agent for setup', () => {
+    const { stderr, exitCode } = run('setup', 'nonexistent');
     assert.strictEqual(exitCode, 1);
     assert.ok(stderr.includes('Unknown agent'));
   });
 
-  it('errors on remote when agent does not support it (opencode)', () => {
-    const { stderr, exitCode } = run('remote', 'demo', '--agent', 'opencode');
-    assert.strictEqual(exitCode, 1);
-    assert.ok(stderr.includes('does not support remote-control'));
-  });
-
-  it('errors on restart when agent does not support remote-control (opencode)', () => {
-    const { stderr, exitCode } = run('restart', 'anything', '--agent', 'opencode');
-    assert.strictEqual(exitCode, 1);
-    assert.ok(stderr.includes('does not support remote-control'));
+  it('shows multi-agent status with no flags', () => {
+    const { stdout, exitCode } = run('status');
+    assert.strictEqual(exitCode, 0);
+    assert.ok(stdout.includes('Agents:'));
+    assert.ok(stdout.includes('claude:'));
+    assert.ok(stdout.includes('opencode:'));
   });
 });

@@ -53,10 +53,10 @@ On macOS (or Linux without a native engine), Colima is started automatically whe
 
 ## Container conventions
 
-- **Image**: `flout-claude` (built from an embedded Dockerfile on first run)
+- **Image**: `flout-sandbox` (built from an embedded Dockerfile on first run; bundles both Claude and opencode)
 - **Container name**: `flout-<MMdd-HHmmss>-<label>` (label defaults to project directory basename)
 - **Mount**: host project dir to `/home/dev/<basename>`
-- **Auth**: mounts `~/.claude` for credential persistence
+- **Auth**: mounts `~/.claude` and `~/.local/share/opencode` for credential persistence
 - **Git**: passes through `user.name` and `user.email` as env vars
 - **Trust**: auto-creates the Claude trust directory for the mounted path
 

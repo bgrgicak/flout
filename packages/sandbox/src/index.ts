@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from 'child_process';
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -16,20 +17,25 @@ export interface SandboxAgent {
   encodePath(dir: string): string;
 }
 
-const IMAGE_NAME = 'flout-claude';
+const IMAGE_BASE = 'flout-sandbox';
 const CONTAINER_PREFIX = 'flout-';
 
+// node:20-slim ships with a pre-existing 'node' user at UID 1000. We delete it
+// so 'dev' can take UID 1000, which matches typical Linux host users — that
+// way bind-mounted credential files (~/.claude, ~/.local/share/opencode) are
+// readable/writable by 'dev' without permission gymnastics.
 const EMBEDDED_DOCKERFILE = `FROM node:20-slim
 
 RUN apt-get update && apt-get install -y \\
     bash curl git sudo tmux \\
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m -s /bin/bash dev \\
+RUN userdel -r node 2>/dev/null || true \\
+    && useradd -m -s /bin/bash -u 1000 dev \\
     && adduser dev sudo \\
     && echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-RUN npm install -g @flout/cli @flout/claude
+RUN npm install -g @flout/cli @flout/claude opencode-ai
 
 USER dev
 WORKDIR /home/dev
@@ -41,6 +47,11 @@ ENV PATH="/home/dev/.local/bin:\${PATH}"
 
 CMD ["sleep", "infinity"]
 `;
+
+// Tag the image with a hash of its Dockerfile so any change to the build
+// definition transparently triggers a rebuild on the next sandbox start.
+const DOCKERFILE_TAG = crypto.createHash('sha256').update(EMBEDDED_DOCKERFILE).digest('hex').slice(0, 12);
+const IMAGE_NAME = `${IMAGE_BASE}:${DOCKERFILE_TAG}`;
 
 function timestamp(): string {
   const now = new Date();
@@ -117,7 +128,7 @@ function buildImage(engine: Engine): void {
   checkBuildSupport(engine);
   const tmpDir = buildTmpDir(engine);
   try {
-    console.log(`Building flout-claude image with ${engine.type}...`);
+    console.log(`Building ${IMAGE_NAME} image with ${engine.type}...`);
     fs.writeFileSync(path.join(tmpDir, 'Dockerfile'), EMBEDDED_DOCKERFILE);
     execFileSync(engine.binary, engineArgs(engine, ['build', '-t', IMAGE_NAME, tmpDir]), { stdio: 'inherit' });
   } catch {
@@ -211,12 +222,22 @@ export function start({ name, cwd, extraArgs, agent, engine: preferredEngine }: 
   const gitName = spawnSync('git', ['config', 'user.name'], { encoding: 'utf8' }).stdout.trim();
   const gitEmail = spawnSync('git', ['config', 'user.email'], { encoding: 'utf8' }).stdout.trim();
 
+  // Ensure host opencode state dir exists so the bind mount has something to point at.
+  const opencodeStateDir = path.join(os.homedir(), '.local', 'share', 'opencode');
+  fs.mkdirSync(opencodeStateDir, { recursive: true });
+
   const runArgs = engineArgs(e, [
     'run', '-d',
     ...(e.type !== 'podman' ? ['--init'] : []),
+    // Map the host user to UID 1000 (dev) inside the container so
+    // bind-mounted credential files appear owned by dev. Only podman needs
+    // this — rootful docker already runs without a user namespace.
+    ...(e.type === 'podman' ? ['--userns=keep-id:uid=1000,gid=1000'] : []),
     '--name', full,
+    '--label', `flout.cwd=${path.resolve(cwd)}`,
     '-v', `${cwd}:${mountTarget}`,
     '-v', `${os.homedir()}/.claude:/home/dev/.claude`,
+    '-v', `${opencodeStateDir}:/home/dev/.local/share/opencode`,
     '-w', mountTarget,
     '-e', `GIT_AUTHOR_NAME=${gitName}`,
     '-e', `GIT_AUTHOR_EMAIL=${gitEmail}`,
@@ -281,10 +302,13 @@ export function shell({ name, engine: preferredEngine }: SandboxShellOptions): v
   }
 }
 
-export interface SandboxClaudeOptions {
+export interface SandboxAgentExecOptions {
   name: string;
   engine?: EngineType;
 }
+
+export type SandboxClaudeOptions = SandboxAgentExecOptions;
+export type SandboxOpencodeOptions = SandboxAgentExecOptions;
 
 export function claude({ name, engine: preferredEngine }: SandboxClaudeOptions): void {
   const resolved = resolveContainer(name, preferredEngine);
@@ -304,26 +328,96 @@ export function claude({ name, engine: preferredEngine }: SandboxClaudeOptions):
   }
 }
 
-export function status(preferredEngine?: EngineType): void {
-  const engines = preferredEngine ? [getEngine(preferredEngine)] : availableEngines();
+export function opencode({ name, engine: preferredEngine }: SandboxOpencodeOptions): void {
+  const resolved = resolveContainer(name, preferredEngine);
+  const e = resolved.engine;
 
-  let found = false;
+  if (!containerRunning(e, resolved.name)) {
+    console.error(`Container '${resolved.name}' is not running.`);
+    process.exit(1);
+  }
+
+  const result = spawnSync(e.binary, engineArgs(e, [
+    'exec', ...execFlags(), resolved.name,
+    'opencode',
+  ]), { stdio: 'inherit' });
+  if (result.status !== 0 && result.status !== null) {
+    process.exit(result.status);
+  }
+}
+
+export interface SandboxListRow {
+  name: string;       // full container name (used for ops, not display)
+  label: string;      // human-friendly suffix
+  type: string;       // 'sandbox/<engine>', e.g. 'sandbox/podman'
+  directory: string;  // host-side cwd that was mounted in
+  age: string;        // e.g. '3m', '12h', '6w'
+}
+
+const SANDBOX_NAME_RE = /^flout-\d{4}-\d{6}-(.+)$/;
+
+function getContainerAge(e: Engine, name: string): string {
+  // Use {{json ...}} so podman emits an ISO-8601 string instead of Go's
+  // default time format (e.g. "2026-05-04 06:57:28.78... +0200 CEST"), which
+  // Date.parse can't handle. Docker's StartedAt is already a JSON string.
+  const r = spawnSync(e.binary, engineArgs(e, ['inspect', '--format', '{{json .State.StartedAt}}', name]), { encoding: 'utf8' });
+  if (r.status !== 0) return '?';
+  const raw = r.stdout.trim().replace(/^"|"$/g, '');
+  const t = Date.parse(raw);
+  if (isNaN(t)) return '?';
+  const seconds = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d`;
+  return `${Math.floor(seconds / 604800)}w`;
+}
+
+function getContainerHostCwd(e: Engine, name: string): string {
+  // Preferred: read the flout.cwd label set at start-time.
+  const label = spawnSync(
+    e.binary,
+    engineArgs(e, ['inspect', '--format', '{{index .Config.Labels "flout.cwd"}}', name]),
+    { encoding: 'utf8' },
+  );
+  const v = label.stdout?.trim();
+  if (label.status === 0 && v && v !== '<no value>') return v;
+
+  // Fallback for containers created before the label existed: scan mounts and
+  // pick the one whose destination is /home/dev/<basename> (not .claude / .local).
+  const mounts = spawnSync(
+    e.binary,
+    engineArgs(e, ['inspect', '--format', '{{range .Mounts}}{{.Source}}|{{.Destination}}{{"\\n"}}{{end}}', name]),
+    { encoding: 'utf8' },
+  );
+  if (mounts.status !== 0) return '?';
+  for (const line of mounts.stdout.trim().split('\n')) {
+    const [source, dest] = line.split('|');
+    if (!dest) continue;
+    if (!dest.startsWith('/home/dev/')) continue;
+    if (dest === '/home/dev/.claude') continue;
+    if (dest.startsWith('/home/dev/.local/')) continue;
+    return source;
+  }
+  return '?';
+}
+
+export function listRows(preferredEngine?: EngineType): SandboxListRow[] {
+  const engines = preferredEngine ? [getEngine(preferredEngine)] : availableEngines();
+  const rows: SandboxListRow[] = [];
   for (const e of engines) {
-    const containers = listFloutContainers(e);
-    if (containers.length === 0) continue;
-    const result = spawnSync(e.binary, engineArgs(e, ['ps', '-a', '--filter', `name=${CONTAINER_PREFIX}`, '--format', `{{.Names}}\t{{.Status}}`]), { encoding: 'utf8' });
-    if (result.status !== 0 || !result.stdout.trim()) continue;
-    const engineLabel = e.viaColima ? `${e.type} (colima)` : e.type;
-    for (const line of result.stdout.trim().split('\n')) {
-      const [name, ...rest] = line.split('\t');
-      console.log(`${name}\t${rest.join('\t')}\t[${engineLabel}]`);
-      found = true;
+    for (const name of listFloutContainers(e)) {
+      const m = name.match(SANDBOX_NAME_RE);
+      rows.push({
+        name,
+        label: m ? m[1] : name,
+        type: `sandbox/${e.type}`,
+        directory: getContainerHostCwd(e, name),
+        age: getContainerAge(e, name),
+      });
     }
   }
-
-  if (!found) {
-    console.log('No flout containers found.');
-  }
+  return rows;
 }
 
 export function usage(): void {
@@ -335,7 +429,9 @@ Usage:
   flout sandbox stop [<name|id>]          Stop a container
   flout sandbox shell [<name|id>]         Exec into a container
   flout sandbox claude [<name|id>]        Exec into a container running Claude
-  flout sandbox status                    List flout containers
+  flout sandbox opencode [<name|id>]      Exec into a container running opencode
+
+Use 'flout list' to see running sandboxes alongside local sessions.
 
 Engines:
   docker       Docker Engine (default on Linux)

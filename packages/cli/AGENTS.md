@@ -5,8 +5,8 @@
 ```
 packages/
   cli/                Main CLI — session management, setup, types
-    src/cli.ts        CLI entry point — parses args, dispatches commands
-    src/sessions.ts   tmux session lifecycle (start, remote, stop, join, list, restart, status)
+    src/cli.ts        CLI entry point — parses args, dispatches per-agent subcommands, owns the AGENTS registry
+    src/sessions.ts   tmux session lifecycle (start, remote, stop, join, list, restart) + session-id parsing
     src/setup.ts      setup and trust commands
     src/types.ts      Agent interface — exported for providers
     bin/flout.js      Thin ESM shim for the compiled CLI
@@ -29,13 +29,13 @@ packages/
 
 ## Architecture
 
-flout is a TypeScript monorepo using npm workspaces. The core `@flout/cli` package is agent-agnostic — `sessions.ts` and `setup.ts` accept an `Agent` interface and never reference Claude directly.
+flout is a TypeScript monorepo using npm workspaces. The core `@flout/cli` package is agent-agnostic — `sessions.ts` and `setup.ts` accept an `Agent` interface and never reference Claude directly. CLI dispatch is per-agent: each agent gets its own top-level subcommand (`flout claude …`, `flout opencode …`).
 
 The `Agent` interface is defined in `packages/cli/src/types.ts`:
 
 ```ts
 interface Agent {
-  name: string;
+  name: string;                                    // alphanumeric only — encoded into session ids
   binary: string;
   installHint?: string;
   remoteCommand?(sessionName: string): string;     // optional — omit if no remote-control mode
@@ -49,13 +49,15 @@ interface Agent {
 }
 ```
 
-`remoteCommand` and `setupTokenCommand` are optional. When `remoteCommand` is missing, `flout remote` and `flout restart` exit with an error for that agent.
+`remoteCommand` and `setupTokenCommand` are optional. When `remoteCommand` is missing, `flout <agent> remote` and `flout restart` of one of its sessions exit with an error.
+
+The agent name appears in session ids: `flout-{MMDD}-{HHMMSS}-{agent}-{label}`. Keep agent names alphanumeric (no hyphens) so the parser in `sessions.ts` can recover the agent from a session id.
 
 ## Adding a new agent
 
-1. Create a new package `packages/<name>/` with `src/index.ts` exporting an object satisfying `Agent`
-2. Add it as a workspace dependency in `packages/cli/package.json` and a tsconfig reference in `packages/cli/tsconfig.json` and the root `tsconfig.json`
-3. Register it in the `AGENTS` map in `packages/cli/src/cli.ts` so it can be selected via `--agent <name>` (or `FLOUT_AGENT=<name>`)
+1. Create a new package `packages/<name>/` with `src/index.ts` exporting an object satisfying `Agent`. Use a single alphanumeric token as `name`.
+2. Add it as a workspace dependency in `packages/cli/package.json` and a tsconfig reference in `packages/cli/tsconfig.json` and the root `tsconfig.json`.
+3. Register it in the `AGENTS` map in `packages/cli/src/cli.ts` and add a `case '<name>'` branch to the top-level `switch` so users can run `flout <name> [name]` and `flout <name> remote [name]`.
 
 ## Container sandbox
 
