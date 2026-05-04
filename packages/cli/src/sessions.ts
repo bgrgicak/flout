@@ -17,14 +17,75 @@ function sanitizeLabel(label: string): string {
   return label.toLowerCase().replace(/[^a-z0-9-]/g, '-');
 }
 
-function generateSessionId(label: string): string {
-  return `flout-${timestamp()}-${sanitizeLabel(label)}`;
+// Session id format: flout-{MMDD}-{HHMMSS}-{agent}-{label}
+// Pre-multi-agent sessions used flout-{MMDD}-{HHMMSS}-{label}, and labels can
+// contain hyphens, so we resolve the agent slot by matching against the set of
+// known agents registered by the CLI.
+const SESSION_RE = /^flout-(\d{4})-(\d{6})-(.+)$/;
+
+let knownAgents: string[] = [];
+
+export function setKnownAgents(names: string[]): void {
+  knownAgents = names;
+}
+
+function generateSessionId(label: string, agentName: string): string {
+  return `flout-${timestamp()}-${agentName}-${sanitizeLabel(label)}`;
+}
+
+export function getAgentFromSession(sessionId: string): string | null {
+  const m = sessionId.match(SESSION_RE);
+  if (!m) return null;
+  const dash = m[3].indexOf('-');
+  if (dash === -1) return null;
+  const candidate = m[3].slice(0, dash);
+  return knownAgents.includes(candidate) ? candidate : null;
+}
+
+export function getLabelFromSession(sessionId: string): string | null {
+  const m = sessionId.match(SESSION_RE);
+  if (!m) return null;
+  const dash = m[3].indexOf('-');
+  if (dash === -1) return m[3];
+  const candidate = m[3].slice(0, dash);
+  return knownAgents.includes(candidate) ? m[3].slice(dash + 1) : m[3];
 }
 
 function listFloutSessions(): string[] {
   const result = spawnSync('tmux', ['list-sessions', '-F', '#{session_name}'], { encoding: 'utf8' });
   if (result.status !== 0) return [];
   return result.stdout.trim().split('\n').filter(s => s.startsWith('flout-'));
+}
+
+function setSessionMode(session: string, mode: 'local' | 'remote'): void {
+  spawnSync('tmux', ['set-option', '-t', session, '@flout-mode', mode]);
+}
+
+function getSessionMode(session: string): 'local' | 'remote' {
+  const r = spawnSync('tmux', ['show-option', '-t', session, '-v', '@flout-mode'], { encoding: 'utf8' });
+  const v = r.stdout?.trim();
+  return v === 'remote' ? 'remote' : 'local';
+}
+
+function getSessionDir(session: string): string {
+  const info = spawnSync('tmux', ['display-message', '-t', session, '-p', '#{pane_current_path}'], { encoding: 'utf8' });
+  return info.stdout?.trim() || '?';
+}
+
+function getSessionAge(session: string): string {
+  const r = spawnSync('tmux', ['display-message', '-t', session, '-p', '#{session_created}'], { encoding: 'utf8' });
+  if (r.status !== 0) return '?';
+  const created = parseInt(r.stdout.trim(), 10);
+  if (!created) return '?';
+  return formatAge(Math.max(0, Math.floor(Date.now() / 1000) - created));
+}
+
+export function formatAge(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d`;
+  return `${Math.floor(seconds / 604800)}w`;
 }
 
 export function resolveSession(query: string): string {
@@ -44,9 +105,7 @@ export function resolveSession(query: string): string {
 
   console.error(`Multiple sessions match '${query}':`);
   for (const s of matches) {
-    const info = spawnSync('tmux', ['display-message', '-t', s, '-p', '#{pane_current_path}'], { encoding: 'utf8' });
-    const dir = info.stdout?.trim() || '?';
-    console.error(`  ${s}  ${dir}`);
+    console.error(`  ${s}  ${getSessionDir(s)}`);
   }
   console.error(`\nUse the full session ID to specify which one.`);
   process.exit(1);
@@ -63,11 +122,12 @@ export function start(label: string, dir: string, agent: Agent): string {
     console.error(`Run: flout trust ${resolved}`);
     process.exit(1);
   }
-  const session = generateSessionId(label);
+  const session = generateSessionId(label, agent.name);
   execFileSync('tmux', [
     'new-session', '-d', '-s', session, '-c', resolved,
     agent.startCommand(),
   ]);
+  setSessionMode(session, 'local');
   console.log(`Session '${session}' started in ${resolved}`);
   return session;
 }
@@ -91,11 +151,12 @@ export function remote(label: string, dir: string, agent: Agent): string {
     console.error(`Run: flout trust ${resolved}`);
     process.exit(1);
   }
-  const session = generateSessionId(label);
+  const session = generateSessionId(label, agent.name);
   const cmd = `while true; do ${agent.remoteCommand(label)}; echo "Connection dropped. Restarting in 5s..."; sleep 5; done`;
   execFileSync('tmux', [
     'new-session', '-d', '-s', session, '-c', resolved, cmd,
   ]);
+  setSessionMode(session, 'remote');
   console.log(`Remote session '${session}' started in ${resolved} (auto-reconnect enabled)`);
   return session;
 }
@@ -120,37 +181,30 @@ export function join(query: string): void {
   }
 }
 
-export function list(): void {
-  const sessions = listFloutSessions();
-  if (sessions.length === 0) {
-    console.log('No active sessions.');
-    return;
-  }
-  for (const s of sessions) {
-    const info = spawnSync('tmux', ['display-message', '-t', s, '-p', '#{pane_current_path}'], { encoding: 'utf8' });
-    const dir = info.stdout?.trim() || '?';
-    console.log(`${s}  ${dir}`);
-  }
+export interface SessionListRow {
+  name: string;       // full session id; used for resolving operations, not display
+  label: string;      // human-friendly suffix
+  type: string;       // 'local' | 'remote' (sandbox uses 'sandbox/<engine>')
+  directory: string;
+  age: string;        // e.g. '3m', '12h', '6w'
 }
 
-export function restart(query: string, dir: string, agent: Agent): string {
+export function listRows(): SessionListRow[] {
+  return listFloutSessions().map(s => ({
+    name: s,
+    label: getLabelFromSession(s) ?? s,
+    type: getSessionMode(s),
+    directory: getSessionDir(s),
+    age: getSessionAge(s),
+  }));
+}
+
+export function restart(session: string, dir: string, agent: Agent): string {
   if (!agent.remoteCommand) {
     console.error(`Agent '${agent.name}' does not support remote-control sessions.`);
     process.exit(1);
   }
-  const session = resolveSession(query);
   spawnSync('tmux', ['kill-session', '-t', session]);
-  const label = session.replace(/^flout-\d{4}-\d{6}-/, '');
+  const label = getLabelFromSession(session) ?? session.replace(/^flout-\d{4}-\d{6}-/, '');
   return remote(label, dir, agent);
-}
-
-export function status(agent: Agent): void {
-  if (!agent.isAuthenticated()) {
-    console.log(`Not logged in. Run: ${agent.loginCommand()}`);
-    if (agent.remoteCommand) {
-      console.log(`Go through the setup process, then run: flout remote ${agent.name}`);
-    }
-    return;
-  }
-  list();
 }

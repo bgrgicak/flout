@@ -40,12 +40,13 @@ function hasAnyEngine(): boolean {
 }
 
 describe('sandbox', () => {
-  it('exports start, stop, shell, claude, status, usage, and resolveContainer functions', () => {
+  it('exports start, stop, shell, claude, opencode, listRows, usage, and resolveContainer functions', () => {
     assert.strictEqual(typeof sandbox.start, 'function');
     assert.strictEqual(typeof sandbox.stop, 'function');
     assert.strictEqual(typeof sandbox.shell, 'function');
     assert.strictEqual(typeof sandbox.claude, 'function');
-    assert.strictEqual(typeof sandbox.status, 'function');
+    assert.strictEqual(typeof sandbox.opencode, 'function');
+    assert.strictEqual(typeof sandbox.listRows, 'function');
     assert.strictEqual(typeof sandbox.usage, 'function');
     assert.strictEqual(typeof sandbox.resolveContainer, 'function');
   });

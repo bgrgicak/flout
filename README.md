@@ -13,75 +13,90 @@ Requires Node.js 18+, tmux, and a container engine ([Colima](https://colima.run/
 ## Usage
 
 ```
-flout setup                          Check dependencies, login, create token
-flout start [name] [--path <dir>]    Start a local session in tmux (sudo for sandbox)
-flout remote [name] [--path <dir>]   Start a remote-control session (always-on)
-flout stop <name|id>                 Stop a session
-flout join <name|id>                 Attach to a running session
-flout list                           List active sessions
-flout status                         Show login and session status
-flout restart <name|id> [--path <dir>]  Restart a remote session
-flout trust <dir>                    Trust a project directory
-flout sandbox <cmd> [<name|id>]      Manage container sandboxes
+flout claude [name] [--path <dir>]          Start a local Claude session and attach
+flout claude remote [name] [--path <dir>]   Start an always-on Claude session (detached)
+flout opencode [name] [--path <dir>]        Start a local opencode session and attach
+flout join <name|id>                        Re-attach to a running session
+flout list                                  List tmux sessions and sandbox containers
+flout stop <name|id>                        Stop a session
+flout restart <name|id> [--path <dir>]      Restart a remote session
+flout status                                Show login + session status for each agent
+flout setup [agent]                         Install/check deps and authenticate (default: claude)
+flout trust <dir> [agent]                   Trust a project directory (default: claude)
+flout sandbox <cmd> [<name|id>]             Manage container sandboxes (start|stop|shell|claude|opencode)
 ```
 
 ### Local sessions
 
 ```bash
 flout setup              # one-time: check deps and authenticate
-flout start myproject    # start a session in the current directory
-sudo flout start myproject  # start with sandbox mode (IS_SANDBOX=1)
-flout join myproject     # reattach after disconnecting
+flout claude myproject   # create a Claude session and attach immediately
+                         # detach with Ctrl+B D — session keeps running
+flout join myproject     # re-attach later
 flout stop myproject     # tear it down
 ```
 
-### Choosing an agent
+`flout claude` and `flout opencode` auto-attach when run from a terminal. In non-interactive contexts (scripts, piped output) they fall back to detached mode and print a `flout join <id>` hint.
 
-flout defaults to Claude Code. Pass `--agent opencode` (or set `FLOUT_AGENT=opencode`) to use [opencode](https://opencode.ai) instead. opencode does not have a remote-control mode, so `flout remote` and `flout restart` only work with Claude.
+### Picking an agent
+
+flout has two agents today:
+
+- **`flout claude`** — Claude Code. Supports a remote-control "always-on" mode via `flout claude remote`.
+- **`flout opencode`** — [opencode](https://opencode.ai). Ships with built-in models that work without an API key, so `flout status` reports it as logged-in as soon as the `opencode` binary is on your `PATH`. opencode has no remote-control mode, so there is no `flout opencode remote`.
 
 ```bash
-flout setup --agent opencode             # one-time setup for opencode
-flout start myproject --agent opencode   # start an opencode session
+flout setup opencode         # one-time: check deps for opencode
+flout opencode myproject     # create an opencode session and attach
 ```
 
-opencode ships with built-in models that work without an API key, so `flout status --agent opencode` is happy as soon as the `opencode` binary is on your `PATH`. Run `opencode auth login` only if you want to register additional providers.
+### Remote (always-on) Claude sessions
 
-### Remote sessions
-
-Remote sessions auto-restart if the agent exits, so they stay running unattended.
+Remote sessions stay detached and auto-restart if the agent exits, so they keep running unattended.
 
 ```bash
-flout remote myproject --path ~/code/myproject
-flout restart myproject
+flout claude remote myproject --path ~/code/myproject
+flout restart myproject     # kill and recreate the remote session
 ```
 
 ### Multiple sessions
 
-Each session gets a unique timestamped ID (e.g. `flout-0410-152301-myproject`), so you can run multiple sessions in the same directory.
+Each session gets a unique timestamped ID (e.g. `flout-0410-152301-claude-myproject`), so you can run multiple sessions in the same directory. The third hyphen-separated segment is the agent name.
 
 ```bash
-flout start myproject              # creates flout-0410-152301-myproject
-flout start myproject              # creates flout-0410-153045-myproject
-flout list                         # shows both with their directories
-flout stop flout-0410-152301-myproject  # stop by full ID
+flout claude myproject              # creates flout-0410-152301-claude-myproject
+flout claude myproject              # creates flout-0410-153045-claude-myproject
+flout opencode myproject            # creates flout-0410-153120-opencode-myproject
+flout list                          # show every session and sandbox in one table
+flout stop flout-0410-152301-claude-myproject  # stop by full ID
 ```
 
-When only one session matches a name, commands like `join` and `stop` resolve it automatically. When multiple match, flout lists the options so you can use the full ID.
+`flout list` shows local sessions, remote (always-on) sessions, and sandbox containers together — one row per item, with the meaningful label, type, host directory, and age:
+
+```
+LABEL       TYPE            DIRECTORY                  AGE
+myproject   local           /home/me/code/myproject    12m
+api         remote          /home/me/code/api          3h
+myproject   sandbox/podman  /home/me/code/myproject    1m
+```
+
+When only one session matches a label, commands like `join` and `stop` resolve it automatically. When multiple match, flout lists the options so you can use the full ID.
 
 ### Sandboxes
 
-Run sessions in isolated containers. Supports Docker, Podman, and containerd (via Colima or nerdctl). The engine is auto-detected — fastest available is used.
+Run agents inside isolated containers. The image bundles both Claude and opencode and is built once on first use, then reused. Supports Docker, Podman, and containerd (via Colima or nerdctl) — the engine is auto-detected.
 
 ```bash
-flout sandbox start                    # start a container (auto-detects engine)
+flout sandbox start                    # build (first time) and start a container
 flout sandbox start --engine podman    # force a specific engine
 flout sandbox shell                    # open a shell in the container
-flout sandbox claude                   # open claude directly in the container
+flout sandbox claude                   # exec claude inside the container
+flout sandbox opencode                 # exec opencode inside the container
 flout sandbox stop                     # stop the container
-flout sandbox status                   # list running containers
+flout list                             # see sandboxes alongside tmux sessions
 ```
 
-On macOS, Colima is started automatically if needed. On Linux, native Docker or Podman is preferred.
+The container's `dev` user is pinned to UID 1000 and your `~/.claude` and `~/.local/share/opencode` directories are bind-mounted in, so credentials propagate automatically. On macOS, Colima is started automatically if needed. On Linux, native Docker or Podman is preferred.
 
 ## License
 

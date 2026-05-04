@@ -9,10 +9,12 @@ import type { Agent } from '../src/types.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkgRoot = path.join(__dirname, '..');
 
+sessions.setKnownAgents(['bashtest']);
+
 const createdSessions: string[] = [];
 
 const bashAgent: Agent = {
-  name: 'bash-test',
+  name: 'bashtest',
   binary: 'bash',
   remoteCommand(name: string) {
     return `bash -c "while true; do echo running-${name}; sleep 60; done"`;
@@ -50,7 +52,7 @@ describe('sessions', () => {
   it('generates timestamped session IDs', () => {
     const id = sessions.start('myproject', '/tmp', bashAgent);
     createdSessions.push(id);
-    assert.match(id, /^flout-\d{4}-\d{6}-myproject$/);
+    assert.match(id, /^flout-\d{4}-\d{6}-bashtest-myproject$/);
 
     const result = spawnSync('tmux', ['has-session', '-t', id]);
     assert.strictEqual(result.status, 0, 'session should exist');
@@ -122,7 +124,7 @@ describe('sessions', () => {
 
   it('refuses to start in a nonexistent directory', () => {
     const cli = path.join(pkgRoot, 'src', 'cli.ts');
-    const result = spawnSync('npx', ['tsx', cli, 'start', 'test', '--path', '/nonexistent-flout-test-dir'], {
+    const result = spawnSync('npx', ['tsx', cli, 'claude', 'test', '--path', '/nonexistent-flout-test-dir'], {
       encoding: 'utf8',
       cwd: pkgRoot,
     });
@@ -131,10 +133,18 @@ describe('sessions', () => {
     assert.ok(output.includes('does not exist'));
   });
 
+  it('extracts the agent name from a session id', () => {
+    const id = sessions.start('agentparse', '/tmp', bashAgent);
+    createdSessions.push(id);
+    assert.strictEqual(sessions.getAgentFromSession(id), 'bashtest');
+    assert.strictEqual(sessions.getLabelFromSession(id), 'agentparse');
+    spawnSync('tmux', ['kill-session', '-t', id]);
+  });
+
   it('sanitizes and lowercases labels', () => {
     const id = sessions.start('My_Project.Name', '/tmp', bashAgent);
     createdSessions.push(id);
-    assert.match(id, /^flout-\d{4}-\d{6}-my-project-name$/);
+    assert.match(id, /^flout-\d{4}-\d{6}-bashtest-my-project-name$/);
 
     spawnSync('tmux', ['kill-session', '-t', id]);
   });

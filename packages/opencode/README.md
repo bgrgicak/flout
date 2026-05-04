@@ -6,11 +6,11 @@ opencode does not have a remote-control mode, so `remoteCommand` is intentionall
 
 ## Usage
 
-This package is a dependency of the main `flout` CLI. Select it via `--agent opencode` (or `FLOUT_AGENT=opencode`):
+This package is a dependency of the main `flout` CLI. Use the `flout opencode` subcommand:
 
 ```bash
-flout setup --agent opencode
-flout start myproject --agent opencode
+flout setup opencode
+flout opencode myproject
 ```
 
 ## Agent interface

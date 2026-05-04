@@ -112,18 +112,15 @@ for (const engine of engines) {
       containers.push(name!);
     });
 
-    it('shows the container in status with --engine', () => {
-      const result = flout('sandbox', 'status', '--engine', engine.flag);
+    it('shows the container in flout list', () => {
+      const result = flout('list');
       assert.strictEqual(result.exitCode, 0);
-      assert.ok(result.stdout.includes(containers[0]),
-        `status should list ${containers[0]}`);
-    });
-
-    it('shows the container in status without --engine', () => {
-      const result = flout('sandbox', 'status');
-      assert.strictEqual(result.exitCode, 0);
-      assert.ok(result.stdout.includes(containers[0]),
-        `status (no --engine) should list ${containers[0]}`);
+      // Containers appear by their label suffix; the timestamp prefix is hidden.
+      const label = containers[0].replace(/^flout-\d{4}-\d{6}-/, '');
+      assert.ok(result.stdout.includes(label),
+        `list should include label '${label}'; got:\n${result.stdout}`);
+      assert.ok(result.stdout.includes(`sandbox/${engine.flag}`),
+        `list should mark the row as 'sandbox/${engine.flag}'; got:\n${result.stdout}`);
     });
 
     it('can exec into the container via raw engine binary', () => {
@@ -167,12 +164,15 @@ for (const engine of engines) {
       assert.notStrictEqual(name, containers[0], 'should create a different container');
     });
 
-    it('shows both containers in status', () => {
-      const result = flout('sandbox', 'status');
+    it('shows both containers in flout list', () => {
+      const result = flout('list');
       assert.strictEqual(result.exitCode, 0);
-      for (const c of containers) {
-        assert.ok(result.stdout.includes(c), `status should list ${c}`);
-      }
+      // Both containers share the same label (intentional for this test); the
+      // list shows two rows with the same LABEL and the engine name.
+      const label = containers[0].replace(/^flout-\d{4}-\d{6}-/, '');
+      const labelRows = result.stdout.split('\n').filter(line => line.includes(label));
+      assert.ok(labelRows.length >= 2,
+        `expected at least 2 list rows for label '${label}'; got:\n${result.stdout}`);
     });
 
     it('disambiguates when multiple containers match short name', () => {
@@ -204,10 +204,10 @@ for (const engine of engines) {
     // --- Shell on running container ---
 
     it('shell works on running container', () => {
-      const name = containers[1];
-      const status = flout('sandbox', 'status');
-      assert.ok(status.stdout.includes(name),
-        `container ${name} should be listed in status`);
+      const list = flout('list');
+      const label = containers[1].replace(/^flout-\d{4}-\d{6}-/, '');
+      assert.ok(list.stdout.includes(label),
+        `container label '${label}' should be listed by flout list`);
     });
 
     // --- Cleanup ---
@@ -220,13 +220,14 @@ for (const engine of engines) {
       assert.ok(result.stdout.includes('removed'));
     });
 
-    it('status shows no containers after cleanup', () => {
-      const result = flout('sandbox', 'status');
+    it('list shows no containers after cleanup', () => {
+      const result = flout('list');
       assert.strictEqual(result.exitCode, 0);
-      for (const c of containers) {
-        assert.ok(!result.stdout.includes(c),
-          `should not list removed container ${c}`);
-      }
+      // Once removed, containers should not appear in the listing under any form
+      // — neither full id nor label — assuming nothing else uses the same label.
+      const label = `e2e-${engine.flag}`;
+      assert.ok(!result.stdout.includes(label),
+        `should not list removed containers with label '${label}'; got:\n${result.stdout}`);
     });
   });
 }
