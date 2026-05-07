@@ -2,7 +2,7 @@
 
 [opencode](https://opencode.ai) provider for [@flout/cli](../cli/). Implements the `Agent` interface for local opencode sessions.
 
-opencode does not have a remote-control mode, so `remoteCommand` is intentionally not implemented — `flout remote` and `flout restart` will refuse to run with this agent.
+opencode does not have a remote-control mode, so `remoteCommand` is intentionally not implemented — there is no `flout opencode remote`, and `flout restart` will refuse to run with this agent.
 
 ## Usage
 
