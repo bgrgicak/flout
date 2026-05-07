@@ -98,6 +98,10 @@ flout list                             # see sandboxes alongside tmux sessions
 
 The container's `dev` user is pinned to UID 1000 and your `~/.claude` and `~/.local/share/opencode` directories are bind-mounted in, so credentials propagate automatically. On macOS, Colima is started automatically if needed. On Linux, native Docker or Podman is preferred.
 
+## Agent skills
+
+[`skills/`](./skills/) contains drop-in Agent Skills that teach Claude Code (or any agent with a shell tool) how to drive flout — start, stop, restart, list, and join sessions on request. See [`skills/README.md`](./skills/README.md) for install instructions for Claude Code, Cursor, ChatGPT custom GPTs, and other agents, plus the limitations that apply to hosted/web chats with no shell access.
+
 ## License
 
 GPL-2.0-only
