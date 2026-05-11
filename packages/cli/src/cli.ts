@@ -128,7 +128,7 @@ Usage:
   flout status                                Show login status for each agent and session list
   flout setup [agent]                         Install/check deps and authenticate (default: claude)
   flout trust <dir> [agent]                   Trust a project directory (default: claude)
-  flout sandbox <cmd> [<name|id>]             Manage container sandboxes (start|stop|shell|claude|opencode)
+  flout sandbox <cmd> [<name|id>] [--path <dir>]  Manage container sandboxes (start|stop|shell|claude|opencode)
 
 Local agent sessions auto-attach when run from a terminal. Detach with Ctrl+B D —
 the session keeps running and can be re-attached with 'flout join <name>'.
@@ -208,13 +208,16 @@ switch (command) {
       case 'start': {
         const name = getFlag('--name') || path.basename(process.cwd());
         const image = getFlag('--image') || undefined;
+        const clean = args.includes('--clean');
+        const cwd = getFlag('--path') || process.cwd();
         sandbox.start({
           name,
-          cwd: process.cwd(),
+          cwd,
           extraArgs: getPassthroughArgs(),
           agent: claude,
           engine: engineFlag,
           image,
+          clean,
         });
         break;
       }
