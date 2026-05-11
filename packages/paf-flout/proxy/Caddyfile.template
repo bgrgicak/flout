@@ -1,0 +1,37 @@
+# paf-flout — per-project Caddy site config (template)
+#
+# Source: packages/paf-flout/proxy/Caddyfile.template
+# Generated form lives at: ~/.config/paf-flout/caddy/sites/${PAF_FLOUT_DOMAIN}.Caddyfile
+# Run with: caddy run --config <generated-file> --adapter caddyfile
+#
+# Topology:
+#
+#   browser
+#     │
+#     ▼ https://${PAF_FLOUT_DOMAIN}:${PAF_FLOUT_HTTPS_PORT}
+#   /etc/hosts: 127.0.0.1 ${PAF_FLOUT_DOMAIN}
+#     │
+#     ▼
+#   Caddy on host (this config)  ─── tls ── mkcert-signed cert in ${PAF_FLOUT_CERT_DIR}
+#     │
+#     ▼ reverse_proxy 127.0.0.1:${PAF_FLOUT_BACKEND_PORT}
+#   flout sandbox container running `opencode serve --hostname 0.0.0.0 --port ${PAF_FLOUT_BACKEND_PORT}`
+#     │
+#     ▼ (container start used `-p 127.0.0.1:${PAF_FLOUT_BACKEND_PORT}:${PAF_FLOUT_BACKEND_PORT}`)
+#
+# Why two distinct ports: opencode keeps its natural ${PAF_FLOUT_BACKEND_PORT} (plain HTTP) so
+# direct in-container connections and any tooling that expects that port keep working;
+# Caddy is an additive TLS shim on ${PAF_FLOUT_HTTPS_PORT}. Don't collide them.
+#
+# Why .test (not .local): macOS routes *.local through mDNSResponder regardless of
+# /etc/hosts entries, so every lookup pays a ~5s mDNS timeout. .test is RFC 6761-reserved
+# for local testing and bypasses mDNS.
+
+{
+	auto_https off
+}
+
+${PAF_FLOUT_DOMAIN}:${PAF_FLOUT_HTTPS_PORT} {
+	tls ${PAF_FLOUT_CERT_DIR}/${PAF_FLOUT_DOMAIN}.pem ${PAF_FLOUT_CERT_DIR}/${PAF_FLOUT_DOMAIN}-key.pem
+	reverse_proxy 127.0.0.1:${PAF_FLOUT_BACKEND_PORT}
+}
