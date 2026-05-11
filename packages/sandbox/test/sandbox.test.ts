@@ -81,6 +81,15 @@ describe('sandbox', () => {
       engine: 'docker',
     };
     assert.ok(startOptsWithEngine);
+
+    const startOptsWithImage: sandbox.SandboxStartOptions = {
+      name: 'test',
+      cwd: '/tmp',
+      extraArgs: [],
+      agent: { encodePath: (d: string) => d },
+      image: 'custom-image:tag',
+    };
+    assert.ok(startOptsWithImage);
   });
 
   it('exports SandboxStopOptions, SandboxShellOptions, SandboxClaudeOptions types', () => {
@@ -116,6 +125,42 @@ describe('sandbox', () => {
 
     const result = runCli('sandbox', 'claude', 'nonexistent-test-xyz');
     assert.strictEqual(result.exitCode, 1);
+  });
+
+  it('start --image exits 1 when the image does not exist locally', () => {
+    if (!hasAnyEngine()) return;
+
+    const result = runCli('sandbox', 'start', '--image', 'flout-does-not-exist:nope', '--name', 'image-flag-test');
+    assert.strictEqual(result.exitCode, 1);
+    assert.ok(
+      result.stderr.includes('flout-does-not-exist:nope'),
+      `Expected stderr to reference the missing image, got: ${result.stderr}`
+    );
+    assert.ok(
+      result.stderr.includes('not found locally'),
+      `Expected stderr to say 'not found locally', got: ${result.stderr}`
+    );
+  });
+
+  it('start --image error message is engine-aware (no hardcoded "docker")', () => {
+    if (!hasAnyEngine()) return;
+
+    const result = runCli('sandbox', 'start', '--image', 'flout-does-not-exist:nope', '--name', 'image-flag-eng-test');
+    // The error references the resolved engine binary (docker/podman/nerdctl) in
+    // the "pull" hint. We don't assert which engine — just that the hint exists.
+    assert.ok(
+      result.stderr.includes(' pull flout-does-not-exist:nope'),
+      `Expected engine-aware pull hint, got: ${result.stderr}`
+    );
+  });
+
+  it('sandbox usage text documents the --image flag', () => {
+    const result = runCli('sandbox');
+    const output = result.stdout + result.stderr;
+    assert.ok(
+      output.includes('--image'),
+      `Expected sandbox usage to document --image, got: ${output}`
+    );
   });
 
   it('docker command shows deprecation warning', () => {

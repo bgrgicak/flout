@@ -192,6 +192,10 @@ export interface SandboxStartOptions {
   extraArgs: string[];
   agent: SandboxAgent;
   engine?: EngineType;
+  // Optional override: use this pre-built image instead of building from the
+  // embedded Dockerfile. Lets external tooling ship batteries-included images
+  // (extra CLIs, pre-installed deps) while keeping flout's lifecycle management.
+  image?: string;
 }
 
 function validateMountPath(engine: Engine, hostPath: string): void {
@@ -206,12 +210,19 @@ function validateMountPath(engine: Engine, hostPath: string): void {
   }
 }
 
-export function start({ name, cwd, extraArgs, agent, engine: preferredEngine }: SandboxStartOptions): string {
+export function start({ name, cwd, extraArgs, agent, engine: preferredEngine, image }: SandboxStartOptions): string {
   const e = getEngine(preferredEngine);
 
   validateMountPath(e, cwd);
 
-  if (!imageExists(e, IMAGE_NAME)) {
+  const imageName = image ?? IMAGE_NAME;
+  if (image) {
+    if (!imageExists(e, image)) {
+      console.error(`Error: image '${image}' not found locally for engine '${e.type}'.`);
+      console.error(`Pull or build it first, e.g. '${e.binary} pull ${image}' or '${e.binary} build -t ${image} .'`);
+      process.exit(1);
+    }
+  } else if (!imageExists(e, IMAGE_NAME)) {
     buildImage(e);
   }
 
@@ -246,7 +257,7 @@ export function start({ name, cwd, extraArgs, agent, engine: preferredEngine }: 
     '-e', 'TERM=xterm-256color',
     '-e', 'COLORTERM=truecolor',
     ...extraArgs,
-    IMAGE_NAME,
+    imageName,
   ]);
   try {
     execFileSync(e.binary, runArgs, { stdio: 'inherit' });
@@ -424,8 +435,9 @@ export function usage(): void {
   console.log(`flout sandbox — manage container sandboxes
 
 Usage:
-  flout sandbox start [--name <n>] [--engine docker|podman|containerd] [-- <args>]
-                                          Build image & start container
+  flout sandbox start [--name <n>] [--image <ref>] [--engine docker|podman|containerd] [-- <args>]
+                                          Build image & start container.
+                                          --image uses a pre-built image and skips the embedded build.
   flout sandbox stop [<name|id>]          Stop a container
   flout sandbox shell [<name|id>]         Exec into a container
   flout sandbox claude [<name|id>]        Exec into a container running Claude

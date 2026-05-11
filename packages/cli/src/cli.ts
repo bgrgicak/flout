@@ -207,12 +207,14 @@ switch (command) {
     switch (sub) {
       case 'start': {
         const name = getFlag('--name') || path.basename(process.cwd());
+        const image = getFlag('--image') || undefined;
         sandbox.start({
           name,
           cwd: process.cwd(),
           extraArgs: getPassthroughArgs(),
           agent: claude,
           engine: engineFlag,
+          image,
         });
         break;
       }
