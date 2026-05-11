@@ -6,6 +6,7 @@
     { "path": "packages/opencode" },
     { "path": "packages/sandbox" },
     { "path": "packages/claude-mock-api" },
-    { "path": "packages/cli" }
+    { "path": "packages/cli" },
+    { "path": "packages/paf-flout" }
   ]
 }
