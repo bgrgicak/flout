@@ -6,7 +6,7 @@ This directory contains reusable Agent Skills that teach an AI coding agent how 
 
 | Skill | What it does |
 |-------|--------------|
-| [`claude-sessions`](./claude-sessions/SKILL.md) | Manage Claude Code and opencode sessions via flout — start/stop/restart/list/join sessions, including always-on remote sessions and container sandboxes. |
+| [`claude-sessions`](./claude-sessions/SKILL.md) | Manage Claude Code, Codex, and opencode sessions via flout — start/stop/restart/list/join sessions, including always-on remote sessions and container sandboxes. |
 
 ## Installing a skill
 

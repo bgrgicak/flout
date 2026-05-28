@@ -5,7 +5,7 @@ set -euo pipefail
 #
 # Builds and pushes multi-platform images (linux/amd64, linux/arm64):
 #   bgrgicak/flout        — base image
-#   bgrgicak/flout-claude — base + Claude Code
+#   bgrgicak/flout-claude — base + Claude Code + Codex
 #
 # Prerequisites:
 #   docker login
@@ -61,7 +61,7 @@ docker buildx build \
   --push \
   "$REPO_ROOT"
 
-# Build and push claude image on top of base
+# Build and push agent image on top of base
 # Use the version tag as the base so the digest is resolved per-platform
 TAGS=("-t" "${CLAUDE_REPO}:${VERSION}")
 if $TAG_LATEST; then

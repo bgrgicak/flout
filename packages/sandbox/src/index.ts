@@ -35,7 +35,7 @@ RUN userdel -r node 2>/dev/null || true \\
     && adduser dev sudo \\
     && echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-RUN npm install -g @flout/cli @flout/claude opencode-ai
+RUN npm install -g @flout/cli @flout/claude @flout/codex opencode-ai @openai/codex
 
 USER dev
 WORKDIR /home/dev
@@ -89,6 +89,50 @@ function imageExists(engine: Engine, name: string): boolean {
 /** Build exec flags: -it when stdin is a real TTY, -i otherwise. */
 function execFlags(): string[] {
   return tty.isatty(0) ? ['-it'] : ['-i'];
+}
+
+function tomlString(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function ensureTrustedCodexProject(config: string, dir: string): string {
+  const header = `[projects.${tomlString(path.resolve(dir))}]`;
+  const lines = config.split(/\r?\n/);
+  const start = lines.findIndex(line => line.trim() === header);
+
+  if (start === -1) {
+    const separator = config.length === 0 || config.endsWith('\n') ? '' : '\n';
+    const spacer = config.length === 0 ? '' : '\n';
+    return `${config}${separator}${spacer}${header}\ntrust_level = "trusted"\n`;
+  }
+
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (lines[i].trim().startsWith('[')) {
+      end = i;
+      break;
+    }
+  }
+
+  for (let i = start + 1; i < end; i++) {
+    if (/^\s*trust_level\s*=/.test(lines[i])) {
+      if (/^\s*trust_level\s*=\s*["']trusted["']\s*$/.test(lines[i])) return config;
+      lines[i] = 'trust_level = "trusted"';
+      return lines.join('\n');
+    }
+  }
+
+  lines.splice(start + 1, 0, 'trust_level = "trusted"');
+  return lines.join('\n');
+}
+
+function trustCodexProject(dir: string): void {
+  const codexDir = path.join(os.homedir(), '.codex');
+  const configPath = path.join(codexDir, 'config.toml');
+  fs.mkdirSync(codexDir, { recursive: true });
+  const current = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
+  const next = ensureTrustedCodexProject(current, dir);
+  if (next !== current) fs.writeFileSync(configPath, next);
 }
 
 function containerRunning(engine: Engine, name: string): boolean {
@@ -225,6 +269,8 @@ export function start({ name, cwd, extraArgs, agent, engine: preferredEngine }: 
   // Ensure host opencode state dir exists so the bind mount has something to point at.
   const opencodeStateDir = path.join(os.homedir(), '.local', 'share', 'opencode');
   fs.mkdirSync(opencodeStateDir, { recursive: true });
+  const codexStateDir = path.join(os.homedir(), '.codex');
+  fs.mkdirSync(codexStateDir, { recursive: true });
 
   const runArgs = engineArgs(e, [
     'run', '-d',
@@ -237,6 +283,7 @@ export function start({ name, cwd, extraArgs, agent, engine: preferredEngine }: 
     '--label', `flout.cwd=${path.resolve(cwd)}`,
     '-v', `${cwd}:${mountTarget}`,
     '-v', `${os.homedir()}/.claude:/home/dev/.claude`,
+    '-v', `${codexStateDir}:/home/dev/.codex`,
     '-v', `${opencodeStateDir}:/home/dev/.local/share/opencode`,
     '-w', mountTarget,
     '-e', `GIT_AUTHOR_NAME=${gitName}`,
@@ -261,6 +308,7 @@ export function start({ name, cwd, extraArgs, agent, engine: preferredEngine }: 
   const encoded = agent.encodePath(mountTarget);
   const trustDir = `/home/dev/.claude/projects/${encoded}`;
   spawnSync(e.binary, engineArgs(e, ['exec', full, 'mkdir', '-p', trustDir]));
+  trustCodexProject(mountTarget);
 
   console.log(`Container '${full}' created and running (engine: ${e.type}${e.viaColima ? ' via colima' : ''}).`);
   return full;
@@ -308,6 +356,7 @@ export interface SandboxAgentExecOptions {
 }
 
 export type SandboxClaudeOptions = SandboxAgentExecOptions;
+export type SandboxCodexOptions = SandboxAgentExecOptions;
 export type SandboxOpencodeOptions = SandboxAgentExecOptions;
 
 export function claude({ name, engine: preferredEngine }: SandboxClaudeOptions): void {
@@ -322,6 +371,24 @@ export function claude({ name, engine: preferredEngine }: SandboxClaudeOptions):
   const result = spawnSync(e.binary, engineArgs(e, [
     'exec', ...execFlags(), resolved.name,
     'claude', '--permission-mode', 'bypassPermissions',
+  ]), { stdio: 'inherit' });
+  if (result.status !== 0 && result.status !== null) {
+    process.exit(result.status);
+  }
+}
+
+export function codex({ name, engine: preferredEngine }: SandboxCodexOptions): void {
+  const resolved = resolveContainer(name, preferredEngine);
+  const e = resolved.engine;
+
+  if (!containerRunning(e, resolved.name)) {
+    console.error(`Container '${resolved.name}' is not running.`);
+    process.exit(1);
+  }
+
+  const result = spawnSync(e.binary, engineArgs(e, [
+    'exec', ...execFlags(), resolved.name,
+    'codex', '--dangerously-bypass-approvals-and-sandbox',
   ]), { stdio: 'inherit' });
   if (result.status !== 0 && result.status !== null) {
     process.exit(result.status);
@@ -429,6 +496,7 @@ Usage:
   flout sandbox stop [<name|id>]          Stop a container
   flout sandbox shell [<name|id>]         Exec into a container
   flout sandbox claude [<name|id>]        Exec into a container running Claude
+  flout sandbox codex [<name|id>]         Exec into a container running Codex
   flout sandbox opencode [<name|id>]      Exec into a container running opencode
 
 Use 'flout list' to see running sandboxes alongside local sessions.
@@ -441,4 +509,3 @@ Engines:
 Auto-detection picks the fastest available engine. On macOS, Colima is preferred.
 Colima is started automatically if needed.`);
 }
-

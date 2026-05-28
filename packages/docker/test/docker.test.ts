@@ -18,17 +18,18 @@ function runCli(...args: string[]): { stdout: string; stderr: string; exitCode: 
 }
 
 describe('docker', () => {
-  it('exports start, stop, shell, claude, status, usage, and resolveContainer functions', () => {
+  it('exports start, stop, shell, claude, codex, status, usage, and resolveContainer functions', () => {
     assert.strictEqual(typeof docker.start, 'function');
     assert.strictEqual(typeof docker.stop, 'function');
     assert.strictEqual(typeof docker.shell, 'function');
     assert.strictEqual(typeof docker.claude, 'function');
+    assert.strictEqual(typeof docker.codex, 'function');
     assert.strictEqual(typeof docker.status, 'function');
     assert.strictEqual(typeof docker.usage, 'function');
     assert.strictEqual(typeof docker.resolveContainer, 'function');
   });
 
-  it('exports DockerStartOptions, DockerStopOptions, DockerShellOptions, DockerClaudeOptions types', () => {
+  it('exports DockerStartOptions, DockerStopOptions, DockerShellOptions, DockerClaudeOptions, and DockerCodexOptions types', () => {
     const startOpts: docker.DockerStartOptions = {
       name: 'test',
       cwd: '/tmp',
@@ -39,6 +40,9 @@ describe('docker', () => {
 
     const claudeOpts: docker.DockerClaudeOptions = { name: 'test' };
     assert.ok(claudeOpts);
+
+    const codexOpts: docker.DockerCodexOptions = { name: 'test' };
+    assert.ok(codexOpts);
   });
 
   it('stop exits 1 for nonexistent container', () => {
@@ -62,6 +66,14 @@ describe('docker', () => {
     if (!hasDocker) return;
 
     const result = runCli('docker', 'claude', 'nonexistent-test-xyz');
+    assert.strictEqual(result.exitCode, 1);
+  });
+
+  it('codex exits 1 for nonexistent container', () => {
+    const hasDocker = spawnSync('which', ['docker']).status === 0;
+    if (!hasDocker) return;
+
+    const result = runCli('docker', 'codex', 'nonexistent-test-xyz');
     assert.strictEqual(result.exitCode, 1);
   });
 });

@@ -21,7 +21,7 @@ RUN useradd -m -s /bin/bash dev \\
     && adduser dev sudo \\
     && echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-RUN npm install -g @flout/cli @flout/claude @flout/docker
+RUN npm install -g @flout/cli @flout/claude @flout/codex @flout/docker @openai/codex
 
 USER dev
 WORKDIR /home/dev
@@ -66,6 +66,50 @@ function imageExists(name: string): boolean {
 function containerRunning(name: string): boolean {
   const result = spawnSync('docker', ['container', 'inspect', '--format', '{{.State.Running}}', name], { encoding: 'utf8' });
   return result.status === 0 && result.stdout.trim() === 'true';
+}
+
+function tomlString(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function ensureTrustedCodexProject(config: string, dir: string): string {
+  const header = `[projects.${tomlString(path.resolve(dir))}]`;
+  const lines = config.split(/\r?\n/);
+  const start = lines.findIndex(line => line.trim() === header);
+
+  if (start === -1) {
+    const separator = config.length === 0 || config.endsWith('\n') ? '' : '\n';
+    const spacer = config.length === 0 ? '' : '\n';
+    return `${config}${separator}${spacer}${header}\ntrust_level = "trusted"\n`;
+  }
+
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (lines[i].trim().startsWith('[')) {
+      end = i;
+      break;
+    }
+  }
+
+  for (let i = start + 1; i < end; i++) {
+    if (/^\s*trust_level\s*=/.test(lines[i])) {
+      if (/^\s*trust_level\s*=\s*["']trusted["']\s*$/.test(lines[i])) return config;
+      lines[i] = 'trust_level = "trusted"';
+      return lines.join('\n');
+    }
+  }
+
+  lines.splice(start + 1, 0, 'trust_level = "trusted"');
+  return lines.join('\n');
+}
+
+function trustCodexProject(dir: string): void {
+  const codexDir = path.join(os.homedir(), '.codex');
+  const configPath = path.join(codexDir, 'config.toml');
+  fs.mkdirSync(codexDir, { recursive: true });
+  const current = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
+  const next = ensureTrustedCodexProject(current, dir);
+  if (next !== current) fs.writeFileSync(configPath, next);
 }
 
 function checkDocker(): void {
@@ -143,12 +187,15 @@ export function start({ name, cwd, extraArgs, agent }: DockerStartOptions): stri
 
   const gitName = spawnSync('git', ['config', 'user.name'], { encoding: 'utf8' }).stdout.trim();
   const gitEmail = spawnSync('git', ['config', 'user.email'], { encoding: 'utf8' }).stdout.trim();
+  const codexStateDir = path.join(os.homedir(), '.codex');
+  fs.mkdirSync(codexStateDir, { recursive: true });
 
   const args = [
     'run', '-d', '--init',
     '--name', full,
     '-v', `${cwd}:${mountTarget}`,
     '-v', `${os.homedir()}/.claude:/home/dev/.claude`,
+    '-v', `${codexStateDir}:/home/dev/.codex`,
     '-w', mountTarget,
     '-e', `GIT_AUTHOR_NAME=${gitName}`,
     '-e', `GIT_AUTHOR_EMAIL=${gitEmail}`,
@@ -164,6 +211,7 @@ export function start({ name, cwd, extraArgs, agent }: DockerStartOptions): stri
   const encoded = agent.encodePath(mountTarget);
   const trustDir = `/home/dev/.claude/projects/${encoded}`;
   spawnSync('docker', ['exec', full, 'mkdir', '-p', trustDir]);
+  trustCodexProject(mountTarget);
 
   console.log(`Container '${full}' created and running.`);
   return full;
@@ -208,6 +256,10 @@ export interface DockerClaudeOptions {
   name: string;
 }
 
+export interface DockerCodexOptions {
+  name: string;
+}
+
 export function claude({ name }: DockerClaudeOptions): void {
   checkDocker();
   const full = resolveContainer(name);
@@ -220,6 +272,24 @@ export function claude({ name }: DockerClaudeOptions): void {
   const result = spawnSync('docker', [
     'exec', '-it', full,
     'claude', '--permission-mode', 'bypassPermissions',
+  ], { stdio: 'inherit' });
+  if (result.status !== 0 && result.status !== null) {
+    process.exit(result.status);
+  }
+}
+
+export function codex({ name }: DockerCodexOptions): void {
+  checkDocker();
+  const full = resolveContainer(name);
+
+  if (!containerRunning(full)) {
+    console.error(`Container '${full}' is not running.`);
+    process.exit(1);
+  }
+
+  const result = spawnSync('docker', [
+    'exec', '-it', full,
+    'codex', '--dangerously-bypass-approvals-and-sandbox',
   ], { stdio: 'inherit' });
   if (result.status !== 0 && result.status !== null) {
     process.exit(result.status);
@@ -247,5 +317,6 @@ Usage:
   flout docker stop [<name|id>]                        Stop a container
   flout docker shell [<name|id>]                       Exec into a container
   flout docker claude [<name|id>]                      Exec into a container running Claude
+  flout docker codex [<name|id>]                       Exec into a container running Codex
   flout docker status                                  List flout containers`);
 }

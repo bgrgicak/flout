@@ -14,10 +14,11 @@ COPY --chown=dev:dev packages /tmp/flout/packages
 USER root
 RUN cd /tmp/flout && npm ci && npm run build \
     && cd packages/claude && npm pack && mv flout-claude-*.tgz /tmp/ && cd .. \
+    && cd codex && npm pack && mv flout-codex-*.tgz /tmp/ && cd .. \
     && cd docker && npm pack && mv flout-docker-*.tgz /tmp/ && cd .. \
     && cd sandbox && npm pack && mv flout-sandbox-*.tgz /tmp/ && cd .. \
     && cd cli && npm pack && mv flout-cli-*.tgz /tmp/ && cd .. \
-    && npm install -g /tmp/flout-cli-*.tgz /tmp/flout-claude-*.tgz /tmp/flout-docker-*.tgz /tmp/flout-sandbox-*.tgz \
+    && npm install -g /tmp/flout-cli-*.tgz /tmp/flout-claude-*.tgz /tmp/flout-codex-*.tgz /tmp/flout-docker-*.tgz /tmp/flout-sandbox-*.tgz @openai/codex \
     && rm -rf /tmp/flout /tmp/flout-*.tgz
 USER dev
 

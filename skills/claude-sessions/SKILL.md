@@ -1,11 +1,11 @@
 ---
 name: claude-sessions
-description: Manage long-running Claude Code and opencode sessions via the flout CLI — start, stop, restart, list, and join sessions, including always-on remote sessions and container sandboxes. Use when the user asks to start a new agent session, restart or kill an existing one, list running sessions, or otherwise references the flout CLI.
+description: Manage long-running Claude Code, Codex, and opencode sessions via the flout CLI — start, stop, restart, list, and join sessions, including always-on remote sessions and container sandboxes. Use when the user asks to start a new agent session, restart or kill an existing one, list running sessions, or otherwise references the flout CLI.
 ---
 
 # flout session management
 
-Use the `flout` CLI to manage persistent agent sessions running in tmux. flout supports two agents — **Claude Code** (`flout claude`) and **opencode** (`flout opencode`) — and can run either locally or inside a container sandbox.
+Use the `flout` CLI to manage persistent agent sessions running in tmux. flout supports three agents — **Claude Code** (`flout claude`), **Codex** (`flout codex`), and **opencode** (`flout opencode`) — and can run locally or inside a container sandbox.
 
 Run `flout` commands via the Bash tool (or whichever shell-execution tool the host agent provides).
 
@@ -33,6 +33,23 @@ Same as `flout claude`, but stays detached and auto-restarts if the agent exits,
 
 ```bash
 flout claude remote myproject --path ~/code/myproject
+```
+
+### `flout codex [name] [--path <dir>]` — Start a local Codex session
+Starts a Codex session in a tmux window and auto-attaches when run interactively. In non-interactive contexts it falls back to detached mode and prints a `flout join <id>` hint. The session does not auto-reconnect — use `flout codex remote` for always-on sessions.
+
+- `name` (optional): session label. Defaults to the basename of the working directory.
+- `--path <dir>` (optional): working directory. Defaults to the current directory.
+
+```bash
+flout codex myproject --path ~/code/myproject
+```
+
+### `flout codex remote [name] [--path <dir>]` — Start an always-on Codex session
+Same as `flout codex`, but stays detached and auto-restarts if the remote-control process exits, so it keeps running unattended.
+
+```bash
+flout codex remote myproject --path ~/code/myproject
 ```
 
 ### `flout opencode [name] [--path <dir>]` — Start a local opencode session
@@ -68,10 +85,11 @@ flout join myproject
 Reports current authentication state and running session count for each agent.
 
 ### `flout setup [agent]` — One-time setup
-Checks dependencies, logs in, and creates a token. Run once on a new machine. Defaults to `claude`; pass `opencode` to set up that agent instead.
+Checks dependencies, logs in, and creates a token when the agent needs one. Run once on a new machine. Defaults to `claude`; pass `codex` or `opencode` to set up another agent instead.
 
 ```bash
 flout setup            # set up claude
+flout setup codex      # set up Codex
 flout setup opencode   # set up opencode
 ```
 
@@ -79,38 +97,40 @@ flout setup opencode   # set up opencode
 Marks a directory as trusted so sessions can run there without per-session prompts. Defaults to `claude`.
 
 ### `flout sandbox <cmd> [<name|id>]` — Container sandboxes
-Manages container-based sandboxes. The image bundles both Claude and opencode and is built once on first use. Supports Docker, Podman, and containerd (via Colima or nerdctl) — auto-detected.
+Manages container-based sandboxes. The image bundles Claude, Codex, and opencode and is built once on first use. Supports Docker, Podman, and containerd (via Colima or nerdctl) — auto-detected.
 
-Subcommands: `start`, `stop`, `shell`, `claude`, `opencode`.
+Subcommands: `start`, `stop`, `shell`, `claude`, `codex`, `opencode`.
 
 ```bash
 flout sandbox start                    # build (first time) and start a container
 flout sandbox start --engine podman    # force a specific engine
 flout sandbox shell                    # open a shell in the container
 flout sandbox claude                   # exec claude inside the container
+flout sandbox codex                    # exec codex inside the container
 flout sandbox opencode                 # exec opencode inside the container
 flout sandbox stop                     # stop the container
 ```
 
-The container's `dev` user is pinned to UID 1000 and `~/.claude` and `~/.local/share/opencode` are bind-mounted in, so credentials propagate automatically.
+The container's `dev` user is pinned to UID 1000 and `~/.claude`, `~/.codex`, and `~/.local/share/opencode` are bind-mounted in, so credentials propagate automatically.
 
 ## When to use these commands
 
 - **User asks "what sessions are running"** → `flout list`
-- **User asks to "start a new session"** in a path → `flout claude <name> --path <dir>` (or `flout claude remote` if they want it always-on)
-- **User asks to "start a remote session"** or wants auto-reconnect → `flout claude remote <name> --path <dir>`
+- **User asks to "start a new session"** in a path → `flout claude <name> --path <dir>` or `flout codex <name> --path <dir>` depending on the requested agent (use the remote variant if they want it always-on)
+- **User asks to "start a remote session"** or wants auto-reconnect → `flout claude remote <name> --path <dir>` or `flout codex remote <name> --path <dir>`
+- **User asks for a Codex session** → `flout codex <name> --path <dir>` (or `flout codex remote` if they want it always-on)
 - **User asks for an opencode session** → `flout opencode <name> --path <dir>`
 - **User asks to "kill" or "stop" a session** → `flout stop <name|id>`
 - **User asks to "restart"** a session → `flout restart <name|id>`
-- **User asks for a sandboxed/containerized session** → `flout sandbox start` then `flout sandbox claude` (or `opencode`)
+- **User asks for a sandboxed/containerized session** → `flout sandbox start` then `flout sandbox claude`, `flout sandbox codex`, or `flout sandbox opencode`
 - **Before any session operation** → run `flout list` first to see current state
 
 ## Important notes
 
-- Sessions are tmux windows running the agent in `bypassPermissions` mode (Claude).
-- Each session gets a unique timestamped ID with the agent name as the third hyphen-segment, e.g. `flout-0410-152301-claude-myproject` or `flout-0410-153120-opencode-myproject`. Multiple sessions can run in the same directory.
+- Sessions are tmux windows running the agent with approval prompts bypassed where the agent supports it (Claude and Codex).
+- Each session gets a unique timestamped ID with the agent name as the third hyphen-segment, e.g. `flout-0410-152301-claude-myproject`, `flout-0410-153015-codex-myproject`, or `flout-0410-153120-opencode-myproject`. Multiple sessions can run in the same directory.
 - When only one session matches a label, `join`/`stop`/`restart` resolve it automatically. When multiple match, list the options for the user and use the full ID.
-- `flout claude remote` keeps the session alive across disconnects and auto-restarts if the agent exits; `flout claude` does not.
+- `flout claude remote` and `flout codex remote` keep the session alive across disconnects and auto-restart if the agent exits; local sessions do not.
 - flout requires Node.js 18+, tmux, and a container engine (Colima recommended, or Podman/Docker). Install with `npm install -g @flout/cli`.
 
 ## Limitations

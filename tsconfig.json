@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "packages/claude" },
+    { "path": "packages/codex" },
     { "path": "packages/docker" },
     { "path": "packages/opencode" },
     { "path": "packages/sandbox" },
