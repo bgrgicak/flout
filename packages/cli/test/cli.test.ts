@@ -27,8 +27,10 @@ describe('CLI', () => {
     assert.ok(stdout.includes('flout'));
     assert.ok(stdout.includes('setup'));
     assert.ok(stdout.includes('claude'));
+    assert.ok(stdout.includes('codex'));
     assert.ok(stdout.includes('opencode'));
     assert.ok(stdout.includes('claude remote'));
+    assert.ok(stdout.includes('codex remote'));
     assert.ok(stdout.includes('stop'));
     assert.ok(stdout.includes('join'));
     assert.ok(stdout.includes('list'));
@@ -87,6 +89,7 @@ describe('CLI', () => {
   it('shows name as optional for agent commands', () => {
     const { stdout } = run('--help');
     assert.ok(stdout.includes('claude [name]'));
+    assert.ok(stdout.includes('codex [name]'));
     assert.ok(stdout.includes('opencode [name]'));
   });
 
@@ -113,6 +116,7 @@ describe('CLI', () => {
     assert.strictEqual(exitCode, 0);
     assert.ok(stdout.includes('Agents:'));
     assert.ok(stdout.includes('claude:'));
+    assert.ok(stdout.includes('codex:'));
     assert.ok(stdout.includes('opencode:'));
   });
 });

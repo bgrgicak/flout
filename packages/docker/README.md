@@ -15,6 +15,7 @@ docker.start({ name: 'myproject', cwd: '/path/to/project', extraArgs: [], agent 
 docker.stop({ name: 'myproject' });
 docker.shell({ name: 'myproject' });
 docker.claude({ name: 'myproject' });
+docker.codex({ name: 'myproject' });
 docker.status();
 ```
 
@@ -26,6 +27,7 @@ docker.status();
 | `stop({ name })` | Stop a running container (resolves by label or full ID) |
 | `shell({ name })` | Exec into a container, landing in the project directory |
 | `claude({ name })` | Exec into a container and launch Claude directly |
+| `codex({ name })` | Exec into a container and launch Codex directly |
 | `status()` | List all flout containers and their state |
 | `resolveContainer(query)` | Find a container by label or full name, with disambiguation |
 
@@ -33,16 +35,16 @@ docker.status();
 
 Each `docker start` creates a new container with a timestamped name (e.g. `flout-0410-152301-myproject`). You can run multiple containers for the same project directory.
 
-When a label matches multiple containers, `stop`, `shell`, and `claude` list the matches so you can use the full container name.
+When a label matches multiple containers, `stop`, `shell`, `claude`, and `codex` list the matches so you can use the full container name.
 
 ## Container conventions
 
 - **Image**: `flout` (built from an embedded Dockerfile on first run)
 - **Container name**: `flout-<MMdd-HHmmss>-<label>` (label defaults to project directory basename)
 - **Mount**: host project dir to `/home/dev/<basename>`
-- **Auth**: mounts `~/.claude` for credential persistence
+- **Auth**: mounts `~/.claude` and `~/.codex` for credential persistence
 - **Git**: passes through `user.name` and `user.email` as env vars
-- **Trust**: auto-creates the Claude trust directory for the mounted path
+- **Trust**: auto-creates the Claude and Codex trust entries for the mounted path
 
 Extra Docker flags can be passed via `extraArgs` (exposed as `--` in the CLI).
 

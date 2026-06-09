@@ -40,11 +40,12 @@ function hasAnyEngine(): boolean {
 }
 
 describe('sandbox', () => {
-  it('exports start, stop, shell, claude, opencode, listRows, usage, and resolveContainer functions', () => {
+  it('exports start, stop, shell, claude, codex, opencode, listRows, usage, and resolveContainer functions', () => {
     assert.strictEqual(typeof sandbox.start, 'function');
     assert.strictEqual(typeof sandbox.stop, 'function');
     assert.strictEqual(typeof sandbox.shell, 'function');
     assert.strictEqual(typeof sandbox.claude, 'function');
+    assert.strictEqual(typeof sandbox.codex, 'function');
     assert.strictEqual(typeof sandbox.opencode, 'function');
     assert.strictEqual(typeof sandbox.listRows, 'function');
     assert.strictEqual(typeof sandbox.usage, 'function');
@@ -83,7 +84,7 @@ describe('sandbox', () => {
     assert.ok(startOptsWithEngine);
   });
 
-  it('exports SandboxStopOptions, SandboxShellOptions, SandboxClaudeOptions types', () => {
+  it('exports SandboxStopOptions, SandboxShellOptions, SandboxClaudeOptions, and SandboxCodexOptions types', () => {
     const stopOpts: sandbox.SandboxStopOptions = { name: 'test' };
     assert.ok(stopOpts);
 
@@ -95,6 +96,9 @@ describe('sandbox', () => {
 
     const claudeOpts: sandbox.SandboxClaudeOptions = { name: 'test', engine: 'nerdctl' };
     assert.ok(claudeOpts);
+
+    const codexOpts: sandbox.SandboxCodexOptions = { name: 'test', engine: 'docker' };
+    assert.ok(codexOpts);
   });
 
   it('stop exits 1 for nonexistent container', () => {
@@ -115,6 +119,13 @@ describe('sandbox', () => {
     if (!hasAnyEngine()) return;
 
     const result = runCli('sandbox', 'claude', 'nonexistent-test-xyz');
+    assert.strictEqual(result.exitCode, 1);
+  });
+
+  it('codex exits 1 for nonexistent container', () => {
+    if (!hasAnyEngine()) return;
+
+    const result = runCli('sandbox', 'codex', 'nonexistent-test-xyz');
     assert.strictEqual(result.exitCode, 1);
   });
 

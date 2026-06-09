@@ -13,6 +13,7 @@ sandbox.start({ name: 'myproject', cwd: '/path/to/project', extraArgs: [], agent
 sandbox.stop({ name: 'myproject' });
 sandbox.shell({ name: 'myproject' });
 sandbox.claude({ name: 'myproject' });
+sandbox.codex({ name: 'myproject' });
 sandbox.status();
 ```
 
@@ -46,6 +47,7 @@ On macOS (or Linux without a native engine), Colima is started automatically whe
 | `stop({ name, engine? })` | Stop a running container (resolves by label or full ID) |
 | `shell({ name, engine? })` | Exec into a container, landing in the project directory |
 | `claude({ name, engine? })` | Exec into a container and launch Claude directly |
+| `codex({ name, engine? })` | Exec into a container and launch Codex directly |
 | `status(engine?)` | List all flout containers and their state |
 | `resolveContainer(query, engine?)` | Find a container by label or full name, with disambiguation |
 | `detectEngine(preferred?)` | Detect the best available container engine |
@@ -53,12 +55,12 @@ On macOS (or Linux without a native engine), Colima is started automatically whe
 
 ## Container conventions
 
-- **Image**: `flout-sandbox` (built from an embedded Dockerfile on first run; bundles both Claude and opencode)
+- **Image**: `flout-sandbox` (built from an embedded Dockerfile on first run; bundles Claude, Codex, and opencode)
 - **Container name**: `flout-<MMdd-HHmmss>-<label>` (label defaults to project directory basename)
 - **Mount**: host project dir to `/home/dev/<basename>`
-- **Auth**: mounts `~/.claude` and `~/.local/share/opencode` for credential persistence
+- **Auth**: mounts `~/.claude`, `~/.codex`, and `~/.local/share/opencode` for credential persistence
 - **Git**: passes through `user.name` and `user.email` as env vars
-- **Trust**: auto-creates the Claude trust directory for the mounted path
+- **Trust**: auto-creates the Claude and Codex trust entries for the mounted path
 
 Extra engine flags can be passed via `extraArgs` (exposed as `--` in the CLI).
 

@@ -31,12 +31,14 @@
     "agent",
     "session",
     "claude",
+    "codex",
     "ai",
     "cli",
     "persistent"
   ],
   "dependencies": {
     "@flout/claude": "^0.3.2",
+    "@flout/codex": "^0.3.2",
     "@flout/docker": "^0.3.2",
     "@flout/opencode": "^0.3.2",
     "@flout/sandbox": "^0.3.2"
