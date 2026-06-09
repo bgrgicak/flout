@@ -2,7 +2,7 @@
   "name": "@flout/paf-flout",
   "version": "0.1.0",
   "type": "module",
-  "private": true,
+  "private": false,
   "description": "Batteries-included image for flout sandboxes (PaF + codex + gemini + opencode + claude pre-installed). Fork-only — not part of upstream flout.",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
