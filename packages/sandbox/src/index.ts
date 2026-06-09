@@ -236,6 +236,16 @@ export interface SandboxStartOptions {
   extraArgs: string[];
   agent: SandboxAgent;
   engine?: EngineType;
+  // Optional override: use this pre-built image instead of building from the
+  // embedded Dockerfile. Lets external tooling ship batteries-included images
+  // (extra CLIs, pre-installed deps) while keeping flout's lifecycle management.
+  image?: string;
+  // When true, do not bridge host auth state into the container. Skip the
+  // ~/.claude and ~/.local/share/opencode bind-mounts and back /home/dev with
+  // a named volume keyed by the container label. The user authenticates fresh
+  // inside the container; creds persist across stop/restart for the same
+  // --name. Different --name values get isolated state (separate volumes).
+  clean?: boolean;
 }
 
 function validateMountPath(engine: Engine, hostPath: string): void {
@@ -250,12 +260,19 @@ function validateMountPath(engine: Engine, hostPath: string): void {
   }
 }
 
-export function start({ name, cwd, extraArgs, agent, engine: preferredEngine }: SandboxStartOptions): string {
+export function start({ name, cwd, extraArgs, agent, engine: preferredEngine, image, clean }: SandboxStartOptions): string {
   const e = getEngine(preferredEngine);
 
   validateMountPath(e, cwd);
 
-  if (!imageExists(e, IMAGE_NAME)) {
+  const imageName = image ?? IMAGE_NAME;
+  if (image) {
+    if (!imageExists(e, image)) {
+      console.error(`Error: image '${image}' not found locally for engine '${e.type}'.`);
+      console.error(`Pull or build it first, e.g. '${e.binary} pull ${image}' or '${e.binary} build -t ${image} .'`);
+      process.exit(1);
+    }
+  } else if (!imageExists(e, IMAGE_NAME)) {
     buildImage(e);
   }
 
@@ -266,11 +283,27 @@ export function start({ name, cwd, extraArgs, agent, engine: preferredEngine }: 
   const gitName = spawnSync('git', ['config', 'user.name'], { encoding: 'utf8' }).stdout.trim();
   const gitEmail = spawnSync('git', ['config', 'user.email'], { encoding: 'utf8' }).stdout.trim();
 
-  // Ensure host opencode state dir exists so the bind mount has something to point at.
-  const opencodeStateDir = path.join(os.homedir(), '.local', 'share', 'opencode');
-  fs.mkdirSync(opencodeStateDir, { recursive: true });
-  const codexStateDir = path.join(os.homedir(), '.codex');
-  fs.mkdirSync(codexStateDir, { recursive: true });
+  // Default mode bridges host auth into the container via bind mounts. Clean
+  // mode skips them and backs /home/dev with a named volume so the user logs
+  // in inside the container and creds persist across stop/restart of the same
+  // --name. The volume key is the sanitized label, so the workspace name is
+  // the identity of the auth state.
+  const homeVolume = `flout-${sanitizeLabel(name)}-home`;
+  let authMounts: string[];
+  if (clean) {
+    authMounts = ['-v', `${homeVolume}:/home/dev`];
+  } else {
+    // Ensure host opencode state dir exists so the bind mount has something to point at.
+    const opencodeStateDir = path.join(os.homedir(), '.local', 'share', 'opencode');
+    fs.mkdirSync(opencodeStateDir, { recursive: true });
+    const codexStateDir = path.join(os.homedir(), '.codex');
+    fs.mkdirSync(codexStateDir, { recursive: true });
+    authMounts = [
+      '-v', `${os.homedir()}/.claude:/home/dev/.claude`,
+      '-v', `${codexStateDir}:/home/dev/.codex`,
+      '-v', `${opencodeStateDir}:/home/dev/.local/share/opencode`,
+    ];
+  }
 
   const runArgs = engineArgs(e, [
     'run', '-d',
@@ -281,10 +314,9 @@ export function start({ name, cwd, extraArgs, agent, engine: preferredEngine }: 
     ...(e.type === 'podman' ? ['--userns=keep-id:uid=1000,gid=1000'] : []),
     '--name', full,
     '--label', `flout.cwd=${path.resolve(cwd)}`,
+    ...(clean ? ['--label', `flout.home-volume=${homeVolume}`] : []),
     '-v', `${cwd}:${mountTarget}`,
-    '-v', `${os.homedir()}/.claude:/home/dev/.claude`,
-    '-v', `${codexStateDir}:/home/dev/.codex`,
-    '-v', `${opencodeStateDir}:/home/dev/.local/share/opencode`,
+    ...authMounts,
     '-w', mountTarget,
     '-e', `GIT_AUTHOR_NAME=${gitName}`,
     '-e', `GIT_AUTHOR_EMAIL=${gitEmail}`,
@@ -293,7 +325,7 @@ export function start({ name, cwd, extraArgs, agent, engine: preferredEngine }: 
     '-e', 'TERM=xterm-256color',
     '-e', 'COLORTERM=truecolor',
     ...extraArgs,
-    IMAGE_NAME,
+    imageName,
   ]);
   try {
     execFileSync(e.binary, runArgs, { stdio: 'inherit' });
@@ -310,7 +342,8 @@ export function start({ name, cwd, extraArgs, agent, engine: preferredEngine }: 
   spawnSync(e.binary, engineArgs(e, ['exec', full, 'mkdir', '-p', trustDir]));
   trustCodexProject(mountTarget);
 
-  console.log(`Container '${full}' created and running (engine: ${e.type}${e.viaColima ? ' via colima' : ''}).`);
+  const cleanNote = clean ? ` [clean: home volume '${homeVolume}']` : '';
+  console.log(`Container '${full}' created and running (engine: ${e.type}${e.viaColima ? ' via colima' : ''})${cleanNote}.`);
   return full;
 }
 
@@ -491,8 +524,13 @@ export function usage(): void {
   console.log(`flout sandbox — manage container sandboxes
 
 Usage:
-  flout sandbox start [--name <n>] [--engine docker|podman|containerd] [-- <args>]
-                                          Build image & start container
+  flout sandbox start [--name <n>] [--path <dir>] [--image <ref>] [--clean] [--engine docker|podman|containerd] [-- <args>]
+                                          Build image & start container.
+                                          --path mounts <dir> as the workspace (defaults to cwd).
+                                          --image uses a pre-built image and skips the embedded build.
+                                          --clean skips host auth bind-mounts and backs /home/dev
+                                          with a named volume keyed by --name (login fresh inside
+                                          the container; creds persist across stop/restart).
   flout sandbox stop [<name|id>]          Stop a container
   flout sandbox shell [<name|id>]         Exec into a container
   flout sandbox claude [<name|id>]        Exec into a container running Claude

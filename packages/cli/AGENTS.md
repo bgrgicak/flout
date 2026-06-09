@@ -82,6 +82,19 @@ npm run build   # tsc --build (compiles all packages)
 npm test        # runs tests across all workspaces
 ```
 
+## Development workflow
+
+Use `npm run dev` (or `npm run cli -- <args>`) to run the CLI directly via `tsx` without a separate build step:
+
+```bash
+npm run cli -- sandbox start --image myimage:tag --name mybox
+npm run cli -- sandbox stop mybox
+npm run cli -- list
+```
+
+`npm run dev` runs `tsc --build && node packages/cli/bin/flout.js` (compiled path).
+`npm run cli` runs `tsx packages/cli/src/cli.ts` directly (no build needed — preferred for iteration).
+
 ## Testing
 
 Tests use `node:test` and `node:assert`. Integration tests use a real bash-based agent and real tmux sessions — no mocks.

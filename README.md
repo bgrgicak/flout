@@ -95,14 +95,15 @@ When only one session matches a label, commands like `join` and `stop` resolve i
 Run agents inside isolated containers. The image bundles Claude, Codex, and opencode and is built once on first use, then reused. Supports Docker, Podman, and containerd (via Colima or nerdctl) — the engine is auto-detected.
 
 ```bash
-flout sandbox start                    # build (first time) and start a container
-flout sandbox start --engine podman    # force a specific engine
-flout sandbox shell                    # open a shell in the container
-flout sandbox claude                   # exec claude inside the container
-flout sandbox codex                    # exec codex inside the container
-flout sandbox opencode                 # exec opencode inside the container
-flout sandbox stop                     # stop the container
-flout list                             # see sandboxes alongside tmux sessions
+flout sandbox start                          # build (first time) and start a container
+flout sandbox start --engine podman          # force a specific engine
+flout sandbox start --image my-image:tag     # use a pre-built image instead of the embedded build
+flout sandbox shell                          # open a shell in the container
+flout sandbox claude                         # exec claude inside the container
+flout sandbox codex                          # exec codex inside the container
+flout sandbox opencode                       # exec opencode inside the container
+flout sandbox stop                           # stop the container
+flout list                                   # see sandboxes alongside tmux sessions
 ```
 
 The container's `dev` user is pinned to UID 1000 and your `~/.claude`, `~/.codex`, and `~/.local/share/opencode` directories are bind-mounted in, so credentials propagate automatically. On macOS, Colima is started automatically if needed. On Linux, native Docker or Podman is preferred.

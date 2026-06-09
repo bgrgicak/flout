@@ -82,6 +82,34 @@ describe('sandbox', () => {
       engine: 'docker',
     };
     assert.ok(startOptsWithEngine);
+
+    const startOptsWithImage: sandbox.SandboxStartOptions = {
+      name: 'test',
+      cwd: '/tmp',
+      extraArgs: [],
+      agent: { encodePath: (d: string) => d },
+      image: 'custom-image:tag',
+    };
+    assert.ok(startOptsWithImage);
+
+    const startOptsWithClean: sandbox.SandboxStartOptions = {
+      name: 'test',
+      cwd: '/tmp',
+      extraArgs: [],
+      agent: { encodePath: (d: string) => d },
+      clean: true,
+    };
+    assert.ok(startOptsWithClean);
+
+    const startOptsWithImageAndClean: sandbox.SandboxStartOptions = {
+      name: 'test',
+      cwd: '/tmp',
+      extraArgs: [],
+      agent: { encodePath: (d: string) => d },
+      image: 'custom-image:tag',
+      clean: true,
+    };
+    assert.ok(startOptsWithImageAndClean);
   });
 
   it('exports SandboxStopOptions, SandboxShellOptions, SandboxClaudeOptions, and SandboxCodexOptions types', () => {
@@ -120,6 +148,91 @@ describe('sandbox', () => {
 
     const result = runCli('sandbox', 'claude', 'nonexistent-test-xyz');
     assert.strictEqual(result.exitCode, 1);
+  });
+
+  it('start --image exits 1 when the image does not exist locally', () => {
+    if (!hasAnyEngine()) return;
+
+    const result = runCli('sandbox', 'start', '--image', 'flout-does-not-exist:nope', '--name', 'image-flag-test');
+    assert.strictEqual(result.exitCode, 1);
+    assert.ok(
+      result.stderr.includes('flout-does-not-exist:nope'),
+      `Expected stderr to reference the missing image, got: ${result.stderr}`
+    );
+    assert.ok(
+      result.stderr.includes('not found locally'),
+      `Expected stderr to say 'not found locally', got: ${result.stderr}`
+    );
+  });
+
+  it('start --image error message is engine-aware (no hardcoded "docker")', () => {
+    if (!hasAnyEngine()) return;
+
+    const result = runCli('sandbox', 'start', '--image', 'flout-does-not-exist:nope', '--name', 'image-flag-eng-test');
+    // The error references the resolved engine binary (docker/podman/nerdctl) in
+    // the "pull" hint. We don't assert which engine — just that the hint exists.
+    assert.ok(
+      result.stderr.includes(' pull flout-does-not-exist:nope'),
+      `Expected engine-aware pull hint, got: ${result.stderr}`
+    );
+  });
+
+  it('sandbox usage text documents the --image flag', () => {
+    const result = runCli('sandbox');
+    const output = result.stdout + result.stderr;
+    assert.ok(
+      output.includes('--image'),
+      `Expected sandbox usage to document --image, got: ${output}`
+    );
+  });
+
+  it('sandbox usage text documents the --clean flag', () => {
+    const result = runCli('sandbox');
+    const output = result.stdout + result.stderr;
+    assert.ok(
+      output.includes('--clean'),
+      `Expected sandbox usage to document --clean, got: ${output}`
+    );
+  });
+
+  it('sandbox usage text documents the --path flag', () => {
+    const result = runCli('sandbox');
+    const output = result.stdout + result.stderr;
+    assert.ok(
+      output.includes('--path'),
+      `Expected sandbox usage to document --path, got: ${output}`
+    );
+  });
+
+  it('start --path is accepted by the parser', () => {
+    // Combine with an obviously-missing --image so the image check fires and we
+    // exit cleanly before any docker run — proves the parser accepts --path.
+    if (!hasAnyEngine()) return;
+
+    const result = runCli('sandbox', 'start', '--path', '/tmp', '--image', 'flout-does-not-exist:nope', '--name', 'path-flag-test');
+    assert.strictEqual(result.exitCode, 1);
+    assert.ok(
+      result.stderr.includes('flout-does-not-exist:nope'),
+      `Expected stderr to reference the missing image, got: ${result.stderr}`
+    );
+  });
+
+  it('start --clean is accepted by the parser and respects the image existence check', () => {
+    // Passing --clean alongside a missing --image should still hit the
+    // image-not-found error (the image check runs before any mount logic),
+    // proving the parser accepts --clean and the check ordering is intact.
+    if (!hasAnyEngine()) return;
+
+    const result = runCli('sandbox', 'start', '--clean', '--image', 'flout-does-not-exist:nope', '--name', 'clean-flag-test');
+    assert.strictEqual(result.exitCode, 1);
+    assert.ok(
+      result.stderr.includes('flout-does-not-exist:nope'),
+      `Expected stderr to reference the missing image, got: ${result.stderr}`
+    );
+    assert.ok(
+      result.stderr.includes('not found locally'),
+      `Expected stderr to say 'not found locally', got: ${result.stderr}`
+    );
   });
 
   it('codex exits 1 for nonexistent container', () => {
