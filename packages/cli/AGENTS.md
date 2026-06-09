@@ -15,6 +15,9 @@ packages/
   claude/             @flout/claude — Claude Code provider
     src/index.ts      Claude-specific commands, auth, and trust checking
 
+  codex/              @flout/codex — Codex provider
+    src/index.ts      Codex-specific commands, auth, and trust checking
+
   opencode/           @flout/opencode — opencode provider (no remote-control mode)
     src/index.ts      opencode-specific commands and auth checking
 
@@ -29,7 +32,7 @@ packages/
 
 ## Architecture
 
-flout is a TypeScript monorepo using npm workspaces. The core `@flout/cli` package is agent-agnostic — `sessions.ts` and `setup.ts` accept an `Agent` interface and never reference Claude directly. CLI dispatch is per-agent: each agent gets its own top-level subcommand (`flout claude …`, `flout opencode …`).
+flout is a TypeScript monorepo using npm workspaces. The core `@flout/cli` package is agent-agnostic — `sessions.ts` and `setup.ts` accept an `Agent` interface and never reference Claude directly. CLI dispatch is per-agent: each agent gets its own top-level subcommand (`flout claude …`, `flout codex …`, `flout opencode …`).
 
 The `Agent` interface is defined in `packages/cli/src/types.ts`:
 
@@ -101,6 +104,7 @@ Tests use `node:test` and `node:assert`. Integration tests use a real bash-based
 E2E suites live in `packages/cli/test/e2e/` and run real flout commands end-to-end:
 
 - `sessions.e2e.ts` — exercises the Claude path. Uses `@flout/claude-mock-api` (HTTP mock) and a fake `claude` binary that just sleeps, so the suite needs no external services.
+- `codex.e2e.ts` — exercises the Codex path with a fake `codex` binary and temporary `CODEX_HOME`, so the suite needs no external services.
 - `opencode.e2e.ts` — exercises the opencode path. Runs the **real** `opencode` binary (no mock), since opencode ships with built-in models that work without any external API key. The suite skips itself when `opencode` is not in `PATH`, so local devs don't have to install it.
 - `sandbox.e2e.ts` / `sandbox-engines.e2e.ts` / `docker.e2e.ts` — container-engine integration.
 

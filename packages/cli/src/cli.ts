@@ -1,5 +1,6 @@
 import path from 'path';
 import claude from '@flout/claude';
+import codex from '@flout/codex';
 import opencode from '@flout/opencode';
 import * as docker from '@flout/docker';
 import * as sandbox from '@flout/sandbox';
@@ -8,7 +9,7 @@ import * as sessions from './sessions.js';
 import { setup, trust } from './setup.js';
 import type { Agent } from './types.js';
 
-const AGENTS: Record<string, Agent> = { claude, opencode };
+const AGENTS: Record<string, Agent> = { claude, codex, opencode };
 sessions.setKnownAgents(Object.keys(AGENTS));
 
 const args = process.argv.slice(2);
@@ -120,6 +121,8 @@ function usage(): void {
 Usage:
   flout claude [name] [--path <dir>]          Start a local Claude session and attach
   flout claude remote [name] [--path <dir>]   Start an always-on Claude session (detached)
+  flout codex [name] [--path <dir>]           Start a local Codex session and attach
+  flout codex remote [name] [--path <dir>]    Start an always-on Codex remote-control session
   flout opencode [name] [--path <dir>]        Start a local opencode session and attach
   flout join <name|id>                        Re-attach to a running session
   flout list                                  List active sessions and sandboxes
@@ -128,7 +131,7 @@ Usage:
   flout status                                Show login status for each agent and session list
   flout setup [agent]                         Install/check deps and authenticate (default: claude)
   flout trust <dir> [agent]                   Trust a project directory (default: claude)
-  flout sandbox <cmd> [<name|id>] [--path <dir>]  Manage container sandboxes (start|stop|shell|claude|opencode)
+  flout sandbox <cmd> [<name|id>] [--path <dir>]  Manage container sandboxes (start|stop|shell|claude|codex|opencode)
 
 Local agent sessions auto-attach when run from a terminal. Detach with Ctrl+B D —
 the session keeps running and can be re-attached with 'flout join <name>'.
@@ -140,6 +143,10 @@ share a label, use the full ID shown by 'flout list'.`);
 switch (command) {
   case 'claude':
     handleAgent(claude, args.slice(1));
+    break;
+
+  case 'codex':
+    handleAgent(codex, args.slice(1));
     break;
 
   case 'opencode':
@@ -185,8 +192,8 @@ switch (command) {
     const name = args[1];
     if (!name) { console.error('Usage: flout restart <name|id> [--path <dir>]'); process.exit(1); }
     const dir = getFlag('--path') || process.cwd();
-    // Look up the agent encoded in the session id; fall back to claude (the
-    // only agent with a remote-control mode today).
+    // Look up the agent encoded in the session id; fall back to claude for
+    // legacy session ids created before agent names were embedded.
     const session = sessions.resolveSession(name);
     const agentName = sessions.getAgentFromSession(session) || 'claude';
     sessions.restart(session, dir, lookupAgent(agentName));
@@ -196,7 +203,7 @@ switch (command) {
   case 'start':
   case 'remote':
     console.error(`'flout ${command}' has been replaced.`);
-    console.error(`Use 'flout claude${command === 'remote' ? ' remote' : ''} [name]' or 'flout opencode [name]'.`);
+    console.error(`Use 'flout claude${command === 'remote' ? ' remote' : ''} [name]', 'flout codex${command === 'remote' ? ' remote' : ''} [name]', or 'flout opencode [name]'.`);
     process.exit(1);
     break;
 
@@ -234,6 +241,11 @@ switch (command) {
       case 'claude': {
         const name = args[2] || getFlag('--name') || path.basename(process.cwd());
         sandbox.claude({ name, engine: engineFlag });
+        break;
+      }
+      case 'codex': {
+        const name = args[2] || getFlag('--name') || path.basename(process.cwd());
+        sandbox.codex({ name, engine: engineFlag });
         break;
       }
       case 'opencode': {
@@ -274,6 +286,11 @@ switch (command) {
       case 'claude': {
         const name = args[2] || getFlag('--name') || path.basename(process.cwd());
         docker.claude({ name });
+        break;
+      }
+      case 'codex': {
+        const name = args[2] || getFlag('--name') || path.basename(process.cwd());
+        docker.codex({ name });
         break;
       }
       case 'status':
