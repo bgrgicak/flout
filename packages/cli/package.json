@@ -1,6 +1,6 @@
 {
   "name": "@flout/cli",
-  "version": "0.3.2",
+  "version": "0.4.2",
   "type": "module",
   "description": "Manage persistent AI agent sessions with tmux",
   "main": "dist/src/index.js",
@@ -37,11 +37,11 @@
     "persistent"
   ],
   "dependencies": {
-    "@flout/claude": "^0.3.2",
-    "@flout/codex": "^0.3.2",
-    "@flout/docker": "^0.3.2",
-    "@flout/opencode": "^0.3.2",
-    "@flout/sandbox": "^0.3.2"
+    "@flout/claude": "^0.4.2",
+    "@flout/codex": "^0.4.2",
+    "@flout/docker": "^0.4.2",
+    "@flout/opencode": "^0.4.2",
+    "@flout/sandbox": "^0.4.2"
   },
   "engines": {
     "node": ">=20"

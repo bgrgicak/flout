@@ -24,8 +24,8 @@
     "typescript-eslint": "^8.58.1"
   },
   "name": "flout",
-  "version": "0.3.2",
+  "version": "0.4.2",
   "dependencies": {
-    "@flout/cli": "^0.3.2"
+    "@flout/cli": "^0.4.2"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@flout/sandbox",
-  "version": "0.3.2",
+  "version": "0.4.2",
   "type": "module",
   "description": "Multi-engine container sandbox for flout (Docker, Podman, nerdctl, Colima)",
   "main": "dist/src/index.js",

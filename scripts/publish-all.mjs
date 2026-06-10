@@ -8,6 +8,7 @@
  *   npm run publish-all -- minor     # minor bump (0.4.0 -> 0.5.0)
  *   npm run publish-all -- major     # major bump (0.4.0 -> 1.0.0)
  *   npm run publish-all -- 1.2.3     # explicit version
+ *   npm run publish-all -- patch --otp=123456   # with npm 2FA one-time password
  *
  * Only packages currently at the root version are bumped (lockstep); packages
  * with independent versions (e.g. @flout/paf-flout) are left alone. Publishing
@@ -56,7 +57,10 @@ function isPublished(name, version) {
 	}
 }
 
-const bumpType = process.argv[2] ?? 'patch';
+const cliArgs = process.argv.slice(2);
+const bumpType = cliArgs.find((arg) => !arg.startsWith('--')) ?? 'patch';
+// Flags (e.g. --otp=123456) are forwarded to npm publish.
+const publishFlags = cliArgs.filter((arg) => arg.startsWith('--')).join(' ');
 
 const rootPkgPath = join(root, 'package.json');
 const rootPkg = readPkg(rootPkgPath);
@@ -114,8 +118,25 @@ for (const path of workspacePkgPaths) {
 		console.log(`Skipping ${pkg.name}@${pkg.version} (already published)`);
 		continue;
 	}
-	run(`npm publish --workspace=${pkg.name}`);
-	published++;
+	try {
+		// stdio is fully inherited so npm can prompt interactively for the
+		// 2FA one-time password.
+		run(`npm publish --workspace=${pkg.name} ${publishFlags}`.trim());
+		published++;
+	} catch {
+		// The registry's read API can lag right after a publish, so the
+		// isPublished pre-check may miss; re-check to tell a publish
+		// conflict apart from a real failure.
+		if (isPublished(pkg.name, pkg.version)) {
+			console.log(`Skipping ${pkg.name}@${pkg.version} (already published)`);
+			continue;
+		}
+		console.error(
+			`\nPublishing ${pkg.name}@${pkg.version} failed — see npm output above.\n` +
+				`Re-running \`npm run publish-all -- ${newVersion}\` is safe; already-published packages are skipped.`
+		);
+		process.exit(1);
+	}
 }
 
 console.log(`\nPublished ${published} packages at version ${newVersion}.`);
