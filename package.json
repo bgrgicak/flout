@@ -11,7 +11,7 @@
     "test": "tsc --build && npm test --workspaces",
     "test:e2e": "tsc --build && npm run test:e2e --workspace=@flout/cli",
     "clean": "tsc --build --clean",
-    "publish-all": "npm run build && npm publish --workspaces",
+    "publish-all": "node scripts/publish-all.mjs",
     "publish-docker": "./packages/docker/publish.sh",
     "publish-sandbox": "npm run build && npm publish --workspace=@flout/sandbox"
   },
